@@ -786,7 +786,7 @@ inline T Atomic::cmpxchg_using_helper(Fn fn,
   return PrimitiveConversions::cast<T>(
     fn(PrimitiveConversions::cast<Type>(exchange_value),
        reinterpret_cast<Type volatile*>(dest),
-       PrimitiveConversions::cast<Type>(compare_value)));
+       PrimitiveConversions::cast<Type>(compare_value),fn));
 }
 
 template<typename T>
