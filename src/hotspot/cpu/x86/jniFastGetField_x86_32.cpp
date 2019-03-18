@@ -132,6 +132,8 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
     case T_CHAR:    slow_case_addr = jni_GetCharField_addr();    break;
     case T_SHORT:   slow_case_addr = jni_GetShortField_addr();   break;
     case T_INT:     slow_case_addr = jni_GetIntField_addr();
+    default:
+    break;
   }
   // tail call
   __ jump (ExternalAddress(slow_case_addr));
@@ -147,6 +149,8 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
   case T_CHAR:    jni_fast_GetCharField_fp    = (GetCharField_t)    fast_entry; break;
   case T_SHORT:   jni_fast_GetShortField_fp   = (GetShortField_t)   fast_entry; break;
   case T_INT:     jni_fast_GetIntField_fp     = (GetIntField_t)     fast_entry; break;
+default:
+    break;
   }
   return os::win32::fast_jni_accessor_wrapper(type);
 #endif
