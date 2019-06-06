@@ -44,7 +44,7 @@ fi
 # set platform-dependent variables
 OS=`uname -s`
 case "$OS" in
-  AIX | Darwin | Linux | SunOS )
+  AIX | Darwin | Linux | SunOS | *BSD )
     NULL=/dev/null
     PS=":"
     FS="/"

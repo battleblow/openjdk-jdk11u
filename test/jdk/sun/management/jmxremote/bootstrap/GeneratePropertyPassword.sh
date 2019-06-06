@@ -42,7 +42,7 @@ if [[ $OS == CYGWIN_NT* ]] ; then
 fi
 
 case $OS in
-SunOS | Linux | Darwin | AIX )
+SunOS | Linux | Darwin | AIX | *BSD )
     PATHSEP=":"
     FILESEP="/"
     DFILESEP=$FILESEP

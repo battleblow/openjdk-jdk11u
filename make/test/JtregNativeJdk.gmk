@@ -61,6 +61,8 @@ else
     BUILD_JDK_JTREG_LIBRARIES_LIBS_libInheritedChannel := -ljava
   else ifeq ($(OPENJDK_TARGET_OS), solaris)
     BUILD_JDK_JTREG_LIBRARIES_LIBS_libInheritedChannel := -ljava
+  else ifeq ($(OPENJDK_TARGET_OS_ENV), bsd.openbsd)
+    BUILD_JDK_JTREG_EXCLUDE += libDirectIO.c
   endif
 endif
 
