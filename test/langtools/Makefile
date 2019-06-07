@@ -37,21 +37,7 @@ ifeq ($(OSNAME), Darwin)
     ARCH=i586
   endif
 endif
-ifeq ($(OSNAME), FreeBSD)
-  PLATFORM = bsd
-  ARCH = $(shell uname -m)
-  ifeq ($(ARCH), i386)
-    ARCH=i586
-  endif
-endif
-ifeq ($(OSNAME), NetBSD)
-  PLATFORM = bsd
-  ARCH = $(shell uname -m)
-  ifeq ($(ARCH), i386)
-    ARCH=i586
-  endif
-endif
-ifeq ($(OSNAME), OpenBSD)
+ifeq ($(findstring BSD,$(OSNAME)), BSD)
   PLATFORM = bsd
   ARCH = $(shell uname -m)
   ifeq ($(ARCH), i386)
