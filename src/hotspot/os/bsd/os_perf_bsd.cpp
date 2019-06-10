@@ -38,6 +38,9 @@
   #include <sys/sched.h>
   #include <sys/resource.h>
 #endif
+#ifdef __NetBSD__
+  #include <uvm/uvm_extern.h>
+#endif
 #include <sys/time.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
@@ -181,10 +184,8 @@ int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_
 #elif defined(__NetBSD__)
   uint64_t cpu_load_info[CPUSTATES];
   size_t length = sizeof(cpu_load_info);
-  int mib[] = { CTL_KERN, KERN_CPTIME };
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
 
-  if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
+  if (sysctlbyname("kern.cp_time", &cpu_load_info, &length, NULL, 0) == -1) {
     return OS_ERR;
   }
 
