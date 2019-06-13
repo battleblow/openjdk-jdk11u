@@ -51,6 +51,7 @@
 #include <sys/time.h>  // For kqueue
 #endif
 
+/* TODO: Refactor. */
 #define RESTARTABLE(_cmd, _result) do { \
   do { \
     _result = _cmd; \
@@ -494,7 +495,7 @@ int os_waitForProcessExitNoReap(pid_t pid) {
     struct kevent event;
 
     kq = kqueue();
-    if (kq < 0)
+    if (kq == -1)
         return -1;
 
     /* block to clean up kq fd */
