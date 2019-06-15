@@ -317,6 +317,34 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   _total_csr_nanos = total_csr_nanos;
 
   return result;
+#elif defined(__FreeBSD__)
+  long jvm_context_switches;
+  size_t length = sizeof(jvm_context_switches);
+  if (sysctlbyname("vm.stats.sys.v_swtch", &jvm_context_switches, &length, NULL, 0) != 0) {
+    return OS_ERR;
+  }
+
+  int result = OS_OK;
+  if (_total_csr_nanos == 0 || _jvm_context_switches == 0) {
+    // First call just set initial values.
+    result = OS_ERR;
+  }
+
+  long total_csr_nanos;
+  if(!now_in_nanos(&total_csr_nanos)) {
+    return OS_ERR;
+  }
+  double delta_in_sec = (double)(total_csr_nanos - _total_csr_nanos) / NANOS_PER_SEC;
+  if (delta_in_sec == 0.0) {
+    // Avoid division by zero
+    return OS_ERR;
+  }
+  *rate = (jvm_context_switches - _jvm_context_switches) / delta_in_sec;
+
+  _jvm_context_switches = jvm_context_switches;
+  _total_csr_nanos = total_csr_nanos;
+
+  return result;
 #else
   return FUNCTIONALITY_NOT_IMPLEMENTED;
 #endif
