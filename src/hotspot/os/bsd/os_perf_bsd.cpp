@@ -303,7 +303,6 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
 }
 
 int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #ifdef __APPLE__
   mach_port_t task = mach_task_self();
   mach_msg_type_number_t task_info_count = TASK_INFO_MAX;
@@ -320,11 +319,16 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   if (sysctlbyname("vm.stats.sys.v_swtch", &jvm_context_switches, &length, NULL, 0) == -1) {
     return OS_ERR;
   }
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__NetBSD__)
+#if defined(__OpenBSD__)
   struct uvmexp js;
-  size_t jslength = sizeof(js);
   int mib[] = { CTL_VM, VM_UVMEXP };
-  size_t miblen = 2;
+#else
+  struct uvmexp_sysctl js;
+  int mib[] = { CTL_VM, VM_UVMEXP2 };
+#endif
+  size_t jslength = sizeof(js);
+  const size_t miblen = sizeof(mib) / sizeof(mib[0]);
   unsigned int jvm_context_switches = 0;
   if (sysctl(mib, miblen, &js, &jslength, NULL, 0) != 0) {
     return OS_ERR;
@@ -355,8 +359,6 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   _total_csr_nanos = total_csr_nanos;
 
   return result;
-#else
-  return FUNCTIONALITY_NOT_IMPLEMENTED;
 #endif
 }
 
