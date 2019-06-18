@@ -328,7 +328,7 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   int mib[] = { CTL_VM, VM_UVMEXP2 };
 #endif
   size_t jslength = sizeof(js);
-  const size_t miblen = sizeof(mib) / sizeof(mib[0]);
+  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
   unsigned int jvm_context_switches = 0;
   if (sysctl(mib, miblen, &js, &jslength, NULL, 0) != 0) {
     return OS_ERR;
@@ -359,7 +359,6 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   _total_csr_nanos = total_csr_nanos;
 
   return result;
-#endif
 }
 
 CPUPerformanceInterface::CPUPerformanceInterface() {
