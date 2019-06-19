@@ -73,6 +73,9 @@ public abstract class GraalHotSpotVMConfigBase extends HotSpotVMConfigAccess {
                 osName = "solaris";
                 break;
             case "Mac OS X":
+            case "OpenBSD":
+            case "FreeBSD":
+            case "NetBSD":
                 osName = "bsd";
                 break;
             default:
