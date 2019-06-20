@@ -33,15 +33,12 @@
   #import <libproc.h>
   #include <mach/mach.h>
   #include <mach/task_info.h>
-#endif
-#ifdef __FreeBSD__
+#else
   #include <sys/user.h>
-#endif
-#if defined(__OpenBSD__) || defined(__NetBSD__)
   #include <sys/sched.h>
+  #include <sys/resource.h>
 #endif
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
 #include <net/if.h>
@@ -178,7 +175,7 @@ int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_
     return OS_ERR;
   }
 
-  long used_ticks = cpu_load_info[CP_USER] + cpu_load_info[CP_NICE] + cpu_load_info[CP_SYS] + cpu_load_info[CP_SPIN];
+  long used_ticks = cpu_load_info[CP_USER] + cpu_load_info[CP_NICE] + cpu_load_info[CP_SYS];
   long total_ticks = used_ticks + cpu_load_info[CP_IDLE];
 
 #elif defined(__NetBSD__)
@@ -239,11 +236,10 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   size_t length;
 #if defined(__OpenBSD__) || defined(__NetBSD__)
   int mib[] = { CTL_KERN, KERN_PROC_MIB, KERN_PROC_ALL, 0, sizeof(struct KINFO_PROC_T), 0 };
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
 #else
   int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
 #endif
+  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
 
   if (sysctl(mib, miblen, NULL, &length, NULL, 0) == -1) {
     return OS_ERR;
