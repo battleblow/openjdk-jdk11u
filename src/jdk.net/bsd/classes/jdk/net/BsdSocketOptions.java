@@ -76,6 +76,7 @@ class BsdSocketOptions extends PlatformSocketOptions {
     private static native int getTcpKeepAliveTime0(int fd) throws SocketException;
     private static native int getTcpKeepAliveIntvl0(int fd) throws SocketException;
     private static native boolean keepAliveOptionsSupported0();
+    private static native void setUserCookie(int fd, int cookie) throws SocketException;
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             System.loadLibrary("extnet");

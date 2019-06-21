@@ -182,3 +182,17 @@ JNIEXPORT jint JNICALL Java_jdk_net_BsdSocketOptions_getTcpKeepAliveIntvl0
     return optval;
 #endif
 }
+
+JNIEXPORT void JNICALL Java_jdk_net_BsdSocketOptions_setUserCookie
+(JNIEnv *env, jobject unused, jint fd, jint cookie) {
+#ifndef __FreeBSD__
+    JNU_ThrowByName(env, "java/lang/UnsupportedOperationException",
+                    "unsupported socket option");
+#else
+   jint rv;
+   const uint32_t optval = (const uint32_t)cookie;
+   socklen_t sz = sizeof (optval);
+   rv = setsockopt(fd, IPPROTO_TCP, SO_USER_COOKIE, &optval, sz);
+   handleError(env, rv, "set option SO_USER_COOKIE failed");
+#endif
+}
