@@ -37,6 +37,8 @@
   #include <sys/user.h>
   #include <sys/sched.h>
   #include <sys/resource.h>
+  #define NET_RT_IFLIST2 NET_RT_IFLIST
+  #define RTM_IFINFO2    RTM_IFINFO
 #endif
 #ifdef __NetBSD__
   #include <uvm/uvm_extern.h>
@@ -47,37 +49,6 @@
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <net/route.h>
-
-#if defined(__OpenBSD__)
-  #define KERN_PROC_MIB  KERN_PROC
-  #define KINFO_PROC_T   kinfo_proc
-  #define KI_PID         p_pid
-  #define KI_UTIME_SEC   p_uutime_sec
-  #define KI_UTIME_USEC  p_uutime_usec
-  #define KI_STIME_SEC   p_ustime_sec
-  #define KI_STIME_USEC  p_ustime_usec
-  #define NET_RT_IFLIST2 NET_RT_IFLIST
-  #define RTM_IFINFO2    RTM_IFINFO
-#elif defined(__FreeBSD__)
-  #define KINFO_PROC_T   kinfo_proc
-  #define KI_PID         ki_pid
-  #define KI_UTIME_SEC   ki_rusage.ru_utime.tv_sec
-  #define KI_UTIME_USEC  ki_rusage.ru_utime.tv_usec
-  #define KI_STIME_SEC   ki_rusage.ru_stime.tv_sec
-  #define KI_STIME_USEC  ki_rusage.ru_stime.tv_usec
-  #define NET_RT_IFLIST2 NET_RT_IFLIST
-  #define RTM_IFINFO2    RTM_IFINFO
-#elif defined(__NetBSD__)
-  #define KERN_PROC_MIB  KERN_PROC2
-  #define KINFO_PROC_T   kinfo_proc2
-  #define KI_PID         p_pid
-  #define KI_UTIME_SEC   p_uutime_sec
-  #define KI_UTIME_USEC  p_uutime_usec
-  #define KI_STIME_SEC   p_ustime_sec
-  #define KI_STIME_USEC  p_ustime_usec
-  #define NET_RT_IFLIST2 NET_RT_IFLIST
-  #define RTM_IFINFO2    RTM_IFINFO
-#endif
 
 static const double NANOS_PER_SEC = 1000000000.0;
 
@@ -156,43 +127,6 @@ int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_
   long used_ticks  = cpu_load_info.cpu_ticks[CPU_STATE_USER] + cpu_load_info.cpu_ticks[CPU_STATE_NICE] + cpu_load_info.cpu_ticks[CPU_STATE_SYSTEM];
   long total_ticks = used_ticks + cpu_load_info.cpu_ticks[CPU_STATE_IDLE];
 
-#elif defined(__FreeBSD__)
-  // counters are user/nice/system/interrupt/idle/states
-  long cpu_load_info[CPUSTATES];
-  size_t length = sizeof(cpu_load_info);
-
-  if (sysctlbyname("kern.cp_time", &cpu_load_info, &length, NULL, 0) == -1) {
-    return OS_ERR;
-  }
-
-  long used_ticks = cpu_load_info[CP_USER] + cpu_load_info[CP_NICE] + cpu_load_info[CP_SYS];
-  long total_ticks = used_ticks + cpu_load_info[CP_IDLE];
-
-#elif defined(__OpenBSD__)
-  long cpu_load_info[CPUSTATES];
-  size_t length = sizeof(cpu_load_info);
-  int mib[] = { CTL_KERN, KERN_CPTIME };
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
-
-  if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
-    return OS_ERR;
-  }
-
-  long used_ticks = cpu_load_info[CP_USER] + cpu_load_info[CP_NICE] + cpu_load_info[CP_SYS];
-  long total_ticks = used_ticks + cpu_load_info[CP_IDLE];
-
-#elif defined(__NetBSD__)
-  uint64_t cpu_load_info[CPUSTATES];
-  size_t length = sizeof(cpu_load_info);
-
-  if (sysctlbyname("kern.cp_time", &cpu_load_info, &length, NULL, 0) == -1) {
-    return OS_ERR;
-  }
-
-  long used_ticks = cpu_load_info[CP_USER] + cpu_load_info[CP_NICE] + cpu_load_info[CP_SYS];
-  long total_ticks = used_ticks + cpu_load_info[CP_IDLE];
-#endif
-
   if (_used_ticks == 0 || _total_ticks == 0) {
     // First call, just set the values
     _used_ticks  = used_ticks;
@@ -214,11 +148,14 @@ int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_
   *cpu_load = (double)used_delta / total_delta;
 
   return OS_OK;
+#else
+  return FUNCTIONALITY_NOT_IMPLEMENTED;
+#endif
 }
 
 int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserLoad, double* pjvmKernelLoad, double* psystemTotalLoad) {
-  int result = cpu_load_total_process(psystemTotalLoad);
 #ifdef __APPLE__
+  int result = cpu_load_total_process(psystemTotalLoad);
   mach_port_t task = mach_task_self();
   mach_msg_type_number_t task_info_count = TASK_INFO_MAX;
   task_info_data_t task_info_data;
@@ -231,46 +168,6 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   int active_processor_count = os::active_processor_count();
   long jvm_user_nanos = absolutetime_info->total_user;
   long jvm_system_nanos = absolutetime_info->total_system;
-
-#else
-  struct KINFO_PROC_T *lproc;
-  size_t length;
-#if defined(__OpenBSD__) || defined(__NetBSD__)
-  int mib[] = { CTL_KERN, KERN_PROC_MIB, KERN_PROC_ALL, 0, sizeof(struct KINFO_PROC_T), 0 };
-#else
-  int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
-#endif
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
-
-  if (sysctl(mib, miblen, NULL, &length, NULL, 0) == -1) {
-    return OS_ERR;
-  }
-
-  lproc = (struct KINFO_PROC_T *)malloc(length);
-  if (!lproc) {
-    return OS_ERR;
-  }
-
-#if defined(__OpenBSD__) || defined(__NetBSD__)
-    mib[5] = length / sizeof(struct KINFO_PROC_T);
-#endif
-
-  if (sysctl(mib, miblen, lproc, &length, NULL, 0) == -1) {
-    free(lproc);
-    return OS_ERR;
-  }
-
-  int active_processor_count = os::active_processor_count();
-  long jvm_user_nanos = 0;
-  long jvm_system_nanos = 0;
-
-  for (size_t i = 0; i < length / sizeof(*lproc); i ++) {
-     jvm_user_nanos += lproc[i].KI_UTIME_USEC + (1000000 * lproc[i].KI_UTIME_SEC);
-     jvm_system_nanos += lproc[i].KI_STIME_USEC + (1000000 * lproc[i].KI_STIME_SEC);
-  }
-
-  free(lproc);
-#endif
 
   long total_cpu_nanos;
   if(!now_in_nanos(&total_cpu_nanos)) {
@@ -297,6 +194,9 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   _jvm_system_nanos = jvm_system_nanos;
 
   return result;
+#else
+  return FUNCTIONALITY_NOT_IMPLEMENTED;
+#endif
 }
 
 int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
@@ -526,7 +426,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   return OS_OK;
 #elif defined(__OpenBSD__)
   struct kinfo_proc *lproc;
-  int mib[] = { CTL_KERN, KERN_PROC_MIB, KERN_PROC_ALL, 0, sizeof(struct KINFO_PROC_T), 0 };
+  int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc), 0 };
   const u_int miblen = sizeof(mib) / sizeof(mib[0]);
   size_t length;
   int pid_count, ret = OS_OK;
@@ -540,7 +440,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     return OS_ERR;
   }
 
-  mib[5] = length / sizeof(struct KINFO_PROC_T);
+  mib[5] = length / sizeof(struct kinfo_proc);
 
   if (sysctl(mib, miblen, lproc, &length, NULL, 0) == -1) {
     free(lproc);
@@ -552,7 +452,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   SystemProcess *next = NULL;
 
   for (int i = 0; i < pid_count; i++) {
-    int pmib[] = { CTL_KERN, KERN_PROC_ARGS, lproc[i].KI_PID, KERN_PROC_ARGV };
+    int pmib[] = { CTL_KERN, KERN_PROC_ARGS, lproc[i].p_pid, KERN_PROC_ARGV };
     const u_int pmiblen = sizeof(pmib) / sizeof(pmib[0]);
     size_t slen;
 
