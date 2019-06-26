@@ -121,14 +121,16 @@ size_t length = sizeof(cpu_load_info);
       return OS_ERR;
     }
 #elif defined(__FreeBSD__)
-    size_t alllength = length * nProcs * sizeof(long);
-    long *allcpus = NEW_C_HEAP_ARRAY(long, alllength, mtInternal);
+    size_t alllength = length * nProcs;
+    long *allcpus = NEW_C_HEAP_ARRAY(long, CPUSTATES * nProcs, mtInternal);
 
     if (sysctlbyname("kern.cp_times", allcpus, &alllength, NULL, 0) == -1) {
+      FREE_C_HEAP_ARRAY(long, allcpus);
       return OS_ERR;
     }
 
     memcpy(cpu_load_info, &allcpus[which_logical_cpu * CPUSTATES], sizeof(long) * CPUSTATES);
+    FREE_C_HEAP_ARRAY(long, allcpus);
 #else
     /* TODO: NetBSD */
     return FUNCTIONALITY_NOT_IMPLEMENTED;
