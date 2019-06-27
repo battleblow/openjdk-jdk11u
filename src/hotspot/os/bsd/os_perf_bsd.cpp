@@ -132,8 +132,11 @@ size_t length = sizeof(cpu_load_info);
     memcpy(cpu_load_info, &allcpus[which_logical_cpu * CPUSTATES], sizeof(long) * CPUSTATES);
     FREE_C_HEAP_ARRAY(long, allcpus);
 #else
-    /* TODO: NetBSD */
-    return FUNCTIONALITY_NOT_IMPLEMENTED;
+    char mib[24];
+    snprintf(mib, sizeof(mib), "kern.cp_time.%d", which_logical_cpu);
+    if (sysctlbyname(mib, &cpu_load_info, &length, NULL, 0) == -1) {
+      return OS_ERR;
+    }
 #endif
   }
 
