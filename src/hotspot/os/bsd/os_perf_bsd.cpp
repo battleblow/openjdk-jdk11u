@@ -52,150 +52,46 @@
 
 static const double NANOS_PER_SEC = 1000000000.0;
 
-#if !defined(__APPLE__)
-struct CPUTicks {
-  uint64_t usedTicks;
-  uint64_t totalTicks;
-};
-
-struct JVMTicks {
-  uint64_t userTicks;
-  uint64_t systemTicks;
-  CPUTicks cpuTicks;
-};
-
-struct PerfCounters {
-  int nProcs;
-  int stathz;		/* statistics clock frequency */
-  JVMTicks jvmTicks;
-  CPUTicks* cpus;
-};
-
-static int get_stathz(int *stathz) {
-  struct clockinfo ci;
-  size_t length = sizeof(ci);
-  int mib[] = { CTL_KERN, KERN_CLOCKRATE };
-  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
-
-  if (sysctl(mib, miblen, &ci, &length, NULL, 0) == -1) {
-    return OS_ERR;
-  }
-
-  *stathz = ci.stathz;
-
-  return OS_OK;
-}
-
-static int get_cpu_ticks(CPUTicks *ticks, int which_logical_cpu, int nProcs) {
-
-#if defined(__NetBSD__)
-uint64_t cpu_load_info[CPUSTATES];
-#else
-long cpu_load_info[CPUSTATES];
-#endif
-size_t length = sizeof(cpu_load_info);
-
-  if (which_logical_cpu == -1) {
-#if defined(__OpenBSD__)
-    int mib[] = { CTL_KERN, KERN_CPTIME };
-    const u_int miblen = sizeof(mib) / sizeof(mib[0]);
-
-    if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
-      return OS_ERR;
-    }
-    /* OpenBSD returns the sum/nProcs. Unify with other stat units */
-    for (size_t i=0; i < CPUSTATES; i++) {
-       cpu_load_info[i] *= nProcs;
-    }
-#else
-    if (sysctlbyname("kern.cp_time", &cpu_load_info, &length, NULL, 0) == -1) {
-      return OS_ERR;
-    }
-#endif
-  } else {
-#if defined(__OpenBSD__)
-    int mib[] = { CTL_KERN, KERN_CPTIME2, which_logical_cpu };
-    const u_int miblen = sizeof(mib) / sizeof(mib[0]);
-
-    if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
-      return OS_ERR;
-    }
-#elif defined(__FreeBSD__)
-    size_t alllength = length * nProcs;
-    long *allcpus = NEW_C_HEAP_ARRAY(long, CPUSTATES * nProcs, mtInternal);
-
-    if (sysctlbyname("kern.cp_times", allcpus, &alllength, NULL, 0) == -1) {
-      FREE_C_HEAP_ARRAY(long, allcpus);
-      return OS_ERR;
-    }
-
-    memcpy(cpu_load_info, &allcpus[which_logical_cpu * CPUSTATES], sizeof(long) * CPUSTATES);
-    FREE_C_HEAP_ARRAY(long, allcpus);
-#else
-    char mib[24];
-    snprintf(mib, sizeof(mib), "kern.cp_time.%d", which_logical_cpu);
-    if (sysctlbyname(mib, &cpu_load_info, &length, NULL, 0) == -1) {
-      return OS_ERR;
-    }
-#endif
-  }
-
-  ticks->totalTicks = 0;
-  for (size_t i=0; i < CPUSTATES; i++) {
-     ticks->totalTicks += cpu_load_info[i];
-  }
-  ticks->usedTicks = ticks->totalTicks - cpu_load_info[CP_IDLE];
-
-  return OS_OK;
-}
-
-static uint64_t tvtoticks(struct timeval tv, int stathz) {
-  uint64_t ticks = 0;
-  ticks += (uint64_t)tv.tv_sec * stathz;
-  ticks += (uint64_t)tv.tv_usec * stathz / (1000 * 1000);
-  return ticks;
-}
-
-static int get_jvm_ticks(JVMTicks *jvm_ticks, int stathz, int nProcs) {
-  struct rusage usage;
-
-  if (getrusage(RUSAGE_SELF, &usage) != 0) {
-    return OS_ERR;
-  }
-
-  if (get_cpu_ticks(&jvm_ticks->cpuTicks, -1, nProcs) != OS_OK) {
-    return OS_ERR;
-  }
-
-  jvm_ticks->userTicks = tvtoticks(usage.ru_utime, stathz);
-  jvm_ticks->systemTicks = tvtoticks(usage.ru_stime, stathz);
-
-  /* ensure values are consistent with each other */
-  if (jvm_ticks->userTicks + jvm_ticks->systemTicks > jvm_ticks->cpuTicks.usedTicks)
-    jvm_ticks->cpuTicks.usedTicks = jvm_ticks->userTicks + jvm_ticks->systemTicks;
-
-  if (jvm_ticks->cpuTicks.usedTicks > jvm_ticks->cpuTicks.totalTicks)
-    jvm_ticks->cpuTicks.totalTicks = jvm_ticks->cpuTicks.usedTicks;
-
-  return OS_OK;
-}
-#endif /* !defined(__APPLE__) */
-
 class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
    friend class CPUPerformanceInterface;
  private:
 #if defined(__APPLE__)
   long _total_cpu_nanos;
+  long _total_csr_nanos;
   long _jvm_user_nanos;
   long _jvm_system_nanos;
+  long _jvm_context_switches;
   long _used_ticks;
   long _total_ticks;
   int  _active_processor_count;
+
+  double normalize(double value) {
+    return MIN2<double>(MAX2<double>(value, 0.0), 1.0);
+  }
 #else
-  PerfCounters _counters;
-#endif
+  struct CPUTicks {
+    uint64_t usedTicks;
+    uint64_t totalTicks;
+  };
+
+  struct JVMTicks {
+    uint64_t userTicks;
+    uint64_t systemTicks;
+    CPUTicks cpuTicks;
+  };
+
+  int _num_procs;
+  int _stathz;          // statistics clock frequency
+  JVMTicks _jvm_ticks;
+  CPUTicks* _cpus;
   long _total_csr_nanos;
   long _jvm_context_switches;
+
+  int init_stathz(void);
+  uint64_t tvtoticks(struct timeval tv);
+  int get_cpu_ticks(CPUTicks *ticks, int which_logical_cpu);
+  int get_jvm_ticks(JVMTicks *jvm_ticks);
+#endif
 
   bool now_in_nanos(long* resultp) {
     timeval current_time;
@@ -207,9 +103,6 @@ class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
     return true;
   }
 
-  double normalize(double value) {
-    return MIN2<double>(MAX2<double>(value, 0.0), 1.0);
-  }
   int cpu_load(int which_logical_cpu, double* cpu_load);
   int context_switch_rate(double* rate);
   int cpu_load_total_process(double* cpu_load);
@@ -223,117 +116,31 @@ class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
   ~CPUPerformance();
 };
 
-CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
 #if defined(__APPLE__)
+
+CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
   _total_cpu_nanos= 0;
+  _total_csr_nanos= 0;
+  _jvm_context_switches = 0;
   _jvm_user_nanos = 0;
   _jvm_system_nanos = 0;
   _used_ticks = 0;
   _total_ticks = 0;
   _active_processor_count = 0;
-#else
-  _counters.nProcs = 0;
-  _counters.stathz = 0;
-  _counters.cpus = NULL;
-#endif
-  _total_csr_nanos= 0;
-  _jvm_context_switches = 0;
 }
 
 bool CPUPerformanceInterface::CPUPerformance::initialize() {
-#if !defined(__APPLE__)
-  _counters.nProcs = os::active_processor_count();
-  if (_counters.nProcs < 1)
-    return false;
-
-  if (get_stathz(&_counters.stathz) != OS_OK) {
-    return false;
-  }
-
-  size_t cpus_array_count = _counters.nProcs + 1;
-  _counters.cpus = NEW_C_HEAP_ARRAY_RETURN_NULL(CPUTicks, cpus_array_count, mtInternal);
-  if (_counters.cpus == NULL) {
-    return false;
-  }
-  memset(_counters.cpus, 0, cpus_array_count * sizeof(*_counters.cpus));
-
-  // For the CPU load total
-  if (get_cpu_ticks(&_counters.cpus[_counters.nProcs], -1, _counters.nProcs) != OS_OK) {
-    FREE_C_HEAP_ARRAY(CPUTicks, _counters.cpus);
-    _counters.cpus = NULL;
-    return false;
-  }
-
-  // For each CPU. Ignoring errors.
-  for (int i = 0; i < _counters.nProcs; i++) {
-    get_cpu_ticks(&_counters.cpus[i], i, _counters.nProcs);
-  }
-
-  // For JVM load
-  if (get_jvm_ticks(&_counters.jvmTicks, _counters.stathz, _counters.nProcs) != OS_OK) {
-    FREE_C_HEAP_ARRAY(CPUTicks, _counters.cpus);
-    _counters.cpus = NULL;
-    return false;
-  }
-
-#endif
   return true;
 }
 
 CPUPerformanceInterface::CPUPerformance::~CPUPerformance() {
-#if !defined(__APPLE__)
-  if (_counters.cpus != NULL) {
-    FREE_C_HEAP_ARRAY(CPUTicks, _counters.cpus);
-  }
-#endif
 }
 
 int CPUPerformanceInterface::CPUPerformance::cpu_load(int which_logical_cpu, double* cpu_load) {
-#ifdef __APPLE__
   return FUNCTIONALITY_NOT_IMPLEMENTED;
-#else
-  CPUTicks curCPUTicks, *prevCPUTicks;
-  uint64_t cpuUsedDelta, cpuTotalDelta;
-
-  *cpu_load = 0.0;
-
-  if (_counters.cpus == NULL) {
-    return OS_ERR;
-  }
-
-  if (which_logical_cpu < -1 || which_logical_cpu >= _counters.nProcs) {
-    return OS_ERR;
-  }
-
-  if (get_cpu_ticks(&curCPUTicks, which_logical_cpu, _counters.nProcs) != OS_OK) {
-    return OS_ERR;
-  }
-
-  const int cpu_idx = (which_logical_cpu == -1) ? _counters.nProcs : which_logical_cpu;
-  prevCPUTicks = &_counters.cpus[cpu_idx];
-
-  cpuUsedDelta = curCPUTicks.usedTicks > prevCPUTicks->usedTicks ?
-    curCPUTicks.usedTicks - prevCPUTicks->usedTicks : 0;
-  cpuTotalDelta = curCPUTicks.totalTicks > prevCPUTicks->totalTicks ?
-    curCPUTicks.totalTicks - prevCPUTicks->totalTicks : 0;
-
-  prevCPUTicks->usedTicks = curCPUTicks.usedTicks;
-  prevCPUTicks->totalTicks = curCPUTicks.totalTicks;
-
-  if (cpuTotalDelta == 0)
-    return OS_ERR;
-
-  if (cpuUsedDelta > cpuTotalDelta)
-    cpuTotalDelta = cpuUsedDelta;
-
-  *cpu_load = (double)cpuUsedDelta/cpuTotalDelta;
-
-  return OS_OK;
-#endif
 }
 
 int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_load) {
-#ifdef __APPLE__
   host_name_port_t host = mach_host_self();
   host_flavor_t flavor = HOST_CPU_LOAD_INFO;
   mach_msg_type_number_t host_info_count = HOST_CPU_LOAD_INFO_COUNT;
@@ -368,21 +175,9 @@ int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_
   *cpu_load = (double)used_delta / total_delta;
 
   return OS_OK;
-#else
-  double jvmUserLoad, jvmKernelLoad, systemTotalLoad;
-
-  if (cpu_loads_process(&jvmUserLoad, &jvmKernelLoad, &systemTotalLoad) != OS_OK) {
-    *cpu_load = 0.0;
-    return OS_ERR;
-  }
-
-  *cpu_load = jvmUserLoad + jvmKernelLoad;
-  return OS_OK;
-#endif
 }
 
 int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserLoad, double* pjvmKernelLoad, double* psystemTotalLoad) {
-#ifdef __APPLE__
   int result = cpu_load_total_process(psystemTotalLoad);
   mach_port_t task = mach_task_self();
   mach_msg_type_number_t task_info_count = TASK_INFO_MAX;
@@ -422,8 +217,223 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   _jvm_system_nanos = jvm_system_nanos;
 
   return result;
+}
+
+#else // !APPLE
+
+CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
+  _num_procs = 0;
+  _stathz = 0;
+  _cpus = NULL;
+  _total_csr_nanos= 0;
+  _jvm_context_switches = 0;
+}
+
+bool CPUPerformanceInterface::CPUPerformance::initialize() {
+  _num_procs = os::active_processor_count();
+  if (_num_procs < 1)
+    return false;
+
+  if (init_stathz() != OS_OK) {
+    return false;
+  }
+
+  size_t cpus_array_count = _num_procs + 1;
+  _cpus = NEW_C_HEAP_ARRAY_RETURN_NULL(CPUTicks, cpus_array_count, mtInternal);
+  if (_cpus == NULL) {
+    return false;
+  }
+  memset(_cpus, 0, cpus_array_count * sizeof(*_cpus));
+
+  // For the CPU load total
+  if (get_cpu_ticks(&_cpus[_num_procs], -1) != OS_OK) {
+    FREE_C_HEAP_ARRAY(CPUTicks, _cpus);
+    _cpus = NULL;
+    return false;
+  }
+
+  // For each CPU. Ignoring errors.
+  for (int i = 0; i < _num_procs; i++) {
+    get_cpu_ticks(&_cpus[i], i);
+  }
+
+  // For JVM load
+  if (get_jvm_ticks(&_jvm_ticks) != OS_OK) {
+    FREE_C_HEAP_ARRAY(CPUTicks, _cpus);
+    _cpus = NULL;
+    return false;
+  }
+  return true;
+}
+
+CPUPerformanceInterface::CPUPerformance::~CPUPerformance() {
+  if (_cpus != NULL) {
+    FREE_C_HEAP_ARRAY(CPUTicks, _cpus);
+  }
+}
+
+int CPUPerformanceInterface::CPUPerformance::init_stathz(void) {
+  struct clockinfo ci;
+  size_t length = sizeof(ci);
+  int mib[] = { CTL_KERN, KERN_CLOCKRATE };
+  const u_int miblen = sizeof(mib) / sizeof(mib[0]);
+
+  if (sysctl(mib, miblen, &ci, &length, NULL, 0) == -1) {
+    return OS_ERR;
+  }
+
+  _stathz = ci.stathz;
+
+  return OS_OK;
+}
+
+int CPUPerformanceInterface::CPUPerformance::get_cpu_ticks(CPUTicks *ticks, int which_logical_cpu) {
+#if defined(__NetBSD__)
+  uint64_t cpu_load_info[CPUSTATES];
 #else
-  JVMTicks curJVMTicks, *prevJVMTicks;
+  long cpu_load_info[CPUSTATES];
+#endif
+  size_t length = sizeof(cpu_load_info);
+
+  if (which_logical_cpu == -1) {
+#if defined(__OpenBSD__)
+    int mib[] = { CTL_KERN, KERN_CPTIME };
+    const u_int miblen = sizeof(mib) / sizeof(mib[0]);
+
+    if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
+      return OS_ERR;
+    }
+    // OpenBSD returns the sum/_num_procs. Unify with other stat units
+    for (size_t i=0; i < CPUSTATES; i++) {
+       cpu_load_info[i] *= _num_procs;
+    }
+#else
+    if (sysctlbyname("kern.cp_time", &cpu_load_info, &length, NULL, 0) == -1) {
+      return OS_ERR;
+    }
+#endif
+  } else {
+#if defined(__OpenBSD__)
+    int mib[] = { CTL_KERN, KERN_CPTIME2, which_logical_cpu };
+    const u_int miblen = sizeof(mib) / sizeof(mib[0]);
+
+    if (sysctl(mib, miblen, &cpu_load_info, &length, NULL, 0) == -1) {
+      return OS_ERR;
+    }
+#elif defined(__FreeBSD__)
+    size_t alllength = length * _num_procs;
+    long *allcpus = NEW_C_HEAP_ARRAY(long, CPUSTATES * _num_procs, mtInternal);
+
+    if (sysctlbyname("kern.cp_times", allcpus, &alllength, NULL, 0) == -1) {
+      FREE_C_HEAP_ARRAY(long, allcpus);
+      return OS_ERR;
+    }
+
+    memcpy(cpu_load_info, &allcpus[which_logical_cpu * CPUSTATES], sizeof(long) * CPUSTATES);
+    FREE_C_HEAP_ARRAY(long, allcpus);
+#else
+    char name[24];
+    snprintf(name, sizeof(name), "kern.cp_time.%d", which_logical_cpu);
+    if (sysctlbyname(name, &cpu_load_info, &length, NULL, 0) == -1) {
+      return OS_ERR;
+    }
+#endif
+  }
+
+  ticks->totalTicks = 0;
+  for (size_t i=0; i < CPUSTATES; i++) {
+     ticks->totalTicks += cpu_load_info[i];
+  }
+  ticks->usedTicks = ticks->totalTicks - cpu_load_info[CP_IDLE];
+
+  return OS_OK;
+}
+
+uint64_t CPUPerformanceInterface::CPUPerformance::tvtoticks(struct timeval tv) {
+  uint64_t ticks = 0;
+  ticks += (uint64_t)tv.tv_sec * _stathz;
+  ticks += (uint64_t)tv.tv_usec * _stathz / (1000 * 1000);
+  return ticks;
+}
+
+int CPUPerformanceInterface::CPUPerformance::get_jvm_ticks(JVMTicks *jvm_ticks) {
+  struct rusage usage;
+
+  if (getrusage(RUSAGE_SELF, &usage) != 0) {
+    return OS_ERR;
+  }
+
+  if (get_cpu_ticks(&jvm_ticks->cpuTicks, -1) != OS_OK) {
+    return OS_ERR;
+  }
+
+  jvm_ticks->userTicks = tvtoticks(usage.ru_utime);
+  jvm_ticks->systemTicks = tvtoticks(usage.ru_stime);
+
+  // ensure values are consistent with each other
+  if (jvm_ticks->userTicks + jvm_ticks->systemTicks > jvm_ticks->cpuTicks.usedTicks)
+    jvm_ticks->cpuTicks.usedTicks = jvm_ticks->userTicks + jvm_ticks->systemTicks;
+
+  if (jvm_ticks->cpuTicks.usedTicks > jvm_ticks->cpuTicks.totalTicks)
+    jvm_ticks->cpuTicks.totalTicks = jvm_ticks->cpuTicks.usedTicks;
+
+  return OS_OK;
+}
+
+int CPUPerformanceInterface::CPUPerformance::cpu_load(int which_logical_cpu, double* cpu_load) {
+  CPUTicks curCPUTicks, *prevCPUTicks;
+  uint64_t cpuUsedDelta, cpuTotalDelta;
+
+  *cpu_load = 0.0;
+
+  if (_cpus == NULL) {
+    return OS_ERR;
+  }
+
+  if (which_logical_cpu < -1 || which_logical_cpu >= _num_procs) {
+    return OS_ERR;
+  }
+
+  if (get_cpu_ticks(&curCPUTicks, which_logical_cpu) != OS_OK) {
+    return OS_ERR;
+  }
+
+  const int cpu_idx = (which_logical_cpu == -1) ? _num_procs : which_logical_cpu;
+  prevCPUTicks = &_cpus[cpu_idx];
+
+  cpuUsedDelta = curCPUTicks.usedTicks > prevCPUTicks->usedTicks ?
+    curCPUTicks.usedTicks - prevCPUTicks->usedTicks : 0;
+  cpuTotalDelta = curCPUTicks.totalTicks > prevCPUTicks->totalTicks ?
+    curCPUTicks.totalTicks - prevCPUTicks->totalTicks : 0;
+
+  prevCPUTicks->usedTicks = curCPUTicks.usedTicks;
+  prevCPUTicks->totalTicks = curCPUTicks.totalTicks;
+
+  if (cpuTotalDelta == 0)
+    return OS_ERR;
+
+  if (cpuUsedDelta > cpuTotalDelta)
+    cpuTotalDelta = cpuUsedDelta;
+
+  *cpu_load = (double)cpuUsedDelta/cpuTotalDelta;
+
+  return OS_OK;
+}
+
+int CPUPerformanceInterface::CPUPerformance::cpu_load_total_process(double* cpu_load) {
+  double jvmUserLoad, jvmKernelLoad, systemTotalLoad;
+
+  if (cpu_loads_process(&jvmUserLoad, &jvmKernelLoad, &systemTotalLoad) != OS_OK) {
+    *cpu_load = 0.0;
+    return OS_ERR;
+  }
+
+  *cpu_load = jvmUserLoad + jvmKernelLoad;
+  return OS_OK;
+}
+
+int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserLoad, double* pjvmKernelLoad, double* psystemTotalLoad) {
+  JVMTicks curJVMTicks;
   CPUTicks *curCPUTicks, *prevCPUTicks;
 
   uint64_t jvmUserDelta, jvmSystemDelta, cpuUsedDelta, cpuTotalDelta;
@@ -432,34 +442,33 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   *pjvmKernelLoad = 0.0;
   *psystemTotalLoad = 0.0;
 
-  if (_counters.cpus == NULL) {
+  if (_cpus == NULL) {
     return OS_ERR;
   }
 
-  if (get_jvm_ticks(&curJVMTicks, _counters.stathz, _counters.nProcs) != OS_OK) {
+  if (get_jvm_ticks(&curJVMTicks) != OS_OK) {
     return OS_ERR;
   }
 
-  prevJVMTicks = &_counters.jvmTicks;
   curCPUTicks = &curJVMTicks.cpuTicks;
-  prevCPUTicks = &prevJVMTicks->cpuTicks;
+  prevCPUTicks = &_jvm_ticks.cpuTicks;
 
-  jvmUserDelta = curJVMTicks.userTicks > prevJVMTicks->userTicks ?
-    curJVMTicks.userTicks - prevJVMTicks->userTicks : 0;
-  jvmSystemDelta = curJVMTicks.systemTicks > prevJVMTicks->systemTicks ?
-    curJVMTicks.systemTicks - prevJVMTicks->systemTicks : 0;
+  jvmUserDelta = curJVMTicks.userTicks > _jvm_ticks.userTicks ?
+    curJVMTicks.userTicks - _jvm_ticks.userTicks : 0;
+  jvmSystemDelta = curJVMTicks.systemTicks > _jvm_ticks.systemTicks ?
+    curJVMTicks.systemTicks - _jvm_ticks.systemTicks : 0;
 
   cpuUsedDelta = curCPUTicks->usedTicks > prevCPUTicks->usedTicks ?
     curCPUTicks->usedTicks - prevCPUTicks->usedTicks : 0;
   cpuTotalDelta = curCPUTicks->totalTicks > prevCPUTicks->totalTicks ?
     curCPUTicks->totalTicks - prevCPUTicks->totalTicks : 0;
 
-  prevJVMTicks->userTicks = curJVMTicks.userTicks;
-  prevJVMTicks->systemTicks = curJVMTicks.systemTicks;
+  _jvm_ticks.userTicks = curJVMTicks.userTicks;
+  _jvm_ticks.systemTicks = curJVMTicks.systemTicks;
   prevCPUTicks->usedTicks = curCPUTicks->usedTicks;
   prevCPUTicks->totalTicks = curCPUTicks->totalTicks;
 
-  /* endsure values are consistent with each other */
+  // ensure values are consistent with each other
   if (jvmUserDelta + jvmSystemDelta > cpuUsedDelta)
     cpuUsedDelta = jvmUserDelta + jvmSystemDelta;
 
@@ -475,8 +484,9 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
   *psystemTotalLoad = (double)cpuUsedDelta/cpuTotalDelta;
 
   return OS_OK;
-#endif
 }
+
+#endif
 
 int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
 #ifdef __APPLE__
