@@ -224,6 +224,7 @@ int CPUPerformanceInterface::CPUPerformance::cpu_loads_process(double* pjvmUserL
 CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
   _num_procs = 0;
   _stathz = 0;
+  _jvm_ticks = JVMTicks();
   _cpus = NULL;
   _total_csr_nanos= 0;
   _jvm_context_switches = 0;
@@ -231,8 +232,9 @@ CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
 
 bool CPUPerformanceInterface::CPUPerformance::initialize() {
   _num_procs = os::active_processor_count();
-  if (_num_procs < 1)
+  if (_num_procs < 1) {
     return false;
+  }
 
   if (init_stathz() != OS_OK) {
     return false;
