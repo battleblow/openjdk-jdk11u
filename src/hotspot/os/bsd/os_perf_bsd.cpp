@@ -50,7 +50,9 @@
 #include <net/if_dl.h>
 #include <net/route.h>
 
-static const double NANOS_PER_SEC = 1000000000.0;
+static const long NANOS_PER_SEC = 1000000000L;
+static const long MICROS_PER_SEC = 1000000L;
+static const long NANOS_PER_MICROSEC = 1000L;
 
 class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
    friend class CPUPerformanceInterface;
@@ -99,7 +101,7 @@ class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
       // Error getting current time
       return false;
     }
-    *resultp = current_time.tv_sec * NANOS_PER_SEC + 1000L * current_time.tv_usec;
+    *resultp = (current_time.tv_sec * NANOS_PER_SEC) + (current_time.tv_usec * NANOS_PER_MICROSEC);
     return true;
   }
 
@@ -354,7 +356,7 @@ int CPUPerformanceInterface::CPUPerformance::get_cpu_ticks(CPUTicks *ticks, int 
 uint64_t CPUPerformanceInterface::CPUPerformance::tvtoticks(struct timeval tv) {
   uint64_t ticks = 0;
   ticks += (uint64_t)tv.tv_sec * _stathz;
-  ticks += (uint64_t)tv.tv_usec * _stathz / (1000 * 1000);
+  ticks += (uint64_t)tv.tv_usec * _stathz / MICROS_PER_SEC;
   return ticks;
 }
 
@@ -535,7 +537,7 @@ int CPUPerformanceInterface::CPUPerformance::context_switch_rate(double* rate) {
   if(!now_in_nanos(&total_csr_nanos)) {
     return OS_ERR;
   }
-  double delta_in_sec = (double)(total_csr_nanos - _total_csr_nanos) / NANOS_PER_SEC;
+  double delta_in_sec = (double)(total_csr_nanos - _total_csr_nanos) / (double)NANOS_PER_SEC;
   if (delta_in_sec == 0.0) {
     // Avoid division by zero
     return OS_ERR;
