@@ -233,7 +233,7 @@ CPUPerformanceInterface::CPUPerformance::CPUPerformance() {
 }
 
 bool CPUPerformanceInterface::CPUPerformance::initialize() {
-  _num_procs = os::active_processor_count();
+  _num_procs = os::processor_count();
   if (_num_procs < 1) {
     return false;
   }
@@ -688,7 +688,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   pid_count = length / sizeof(*lproc);
   int process_count = 0;
   SystemProcess *next = NULL;
-  
+
   for (int i = 0; i < pid_count; i++) {
      int pmib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, lproc[i].ki_pid };
      const u_int pmiblen = sizeof(pmib) / sizeof(pmib[0]);
