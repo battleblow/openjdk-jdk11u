@@ -666,7 +666,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   return OS_OK;
 #elif defined(__FreeBSD__)
   struct kinfo_proc *lproc;
-  int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
+  int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PROC };
   const u_int miblen = sizeof(mib) / sizeof(mib[0]);
   size_t length;
   int pid_count;
@@ -675,7 +675,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     return OS_ERR;
   }
 
-  lproc = (struct kinfo_proc *)malloc(length);
+  lproc = (struct kinfo_proc *) malloc(length);
   if (!lproc) {
     return OS_ERR;
   }
