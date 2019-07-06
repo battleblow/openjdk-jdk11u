@@ -690,26 +690,47 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   SystemProcess *next = NULL;
 
   for (int i = 0; i < pid_count; i++) {
-     int pmib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, lproc[i].ki_pid };
-     const u_int pmiblen = sizeof(pmib) / sizeof(pmib[0]);
-     char buffer[PATH_MAX];
-     length = sizeof(buffer);
-     if (sysctl(pmib, pmiblen, buffer, &length, NULL, 0) == -1) {
-       continue;
-     }
+    // Executable path
+    int pmib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, lproc[i].ki_pid };
+    const u_int pmiblen = sizeof(pmib) / sizeof(pmib[0]);
+    char pbuf[PATH_MAX];
+    size_t plen = sizeof(pbuf);
+    if (sysctl(pmib, pmiblen, pbuf, &plen, NULL, 0) == -1) {
+      continue;
+    }
+    plen = strnlen(pbuf, PATH_MAX);
+    if (plen == 0) {
+      continue;
+    }
+    char *path = NEW_C_HEAP_ARRAY(char, plen + 1, mtInternal);
+    strncpy(path, pbuf, plen);
+    path[plen] = '\0';
 
-     length = strnlen(buffer, PATH_MAX);
-     if (length > 0) {
-       SystemProcess* current = new SystemProcess();
-       char * path = NEW_C_HEAP_ARRAY(char, length + 1, mtInternal);
-       strncpy(path, buffer, length);
-       path[length] = 0;
-       current->set_path(path);
-       current->set_pid((int)lproc[i].ki_pid);
-       current->set_next(next);
-       next = current;
-       process_count++;
-     }
+    // Command line
+    int amib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ARGS, lproc[i].ki_pid };
+    const u_int amiblen = sizeof(amib) / sizeof(amib[0]);
+    char abuf[ARG_MAX];
+    size_t alen = sizeof(abuf);
+    char *cmdline = NULL;
+    if (sysctl(amib, amiblen, abuf, &alen, NULL, 0) != -1 && alen > 0) {
+      // Arguments are NUL separated in the result, replace that with a space
+      for (size_t j = 0; j < alen; j++) {
+        if (abuf[j] == '\0') {
+          abuf[j] = ' ';
+        }
+      }
+      cmdline = NEW_C_HEAP_ARRAY(char, alen + 1, mtInternal);
+      strncpy(cmdline, abuf, alen);
+      cmdline[alen] = '\0';
+    }
+
+    SystemProcess* current = new SystemProcess();
+    current->set_pid((int)lproc[i].ki_pid);
+    current->set_path(path);
+    current->set_command_line(cmdline);
+    current->set_next(next);
+    next = current;
+    process_count++;
   }
 
   free(lproc);
