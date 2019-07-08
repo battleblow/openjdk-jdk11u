@@ -50,9 +50,9 @@
 #include <net/if_dl.h>
 #include <net/route.h>
 
-static const long NANOS_PER_SEC = 1000000000L;
-static const long MICROS_PER_SEC = 1000000L;
-static const long NANOS_PER_MICROSEC = 1000L;
+static const time_t NANOS_PER_SEC = 1000000000LL;
+static const time_t MICROS_PER_SEC = 1000000LL;
+static const time_t NANOS_PER_MICROSEC = 1000LL;
 
 class CPUPerformanceInterface::CPUPerformance : public CHeapObj<mtInternal> {
    friend class CPUPerformanceInterface;
@@ -675,13 +675,13 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     return OS_ERR;
   }
 
-  lproc = (struct kinfo_proc *) malloc(length);
-  if (!lproc) {
+  lproc = NEW_C_HEAP_ARRAY_RETURN_NULL(struct kinfo_proc, length, mtInternal);
+  if (lproc == NULL) {
     return OS_ERR;
   }
 
   if (sysctl(mib, miblen, lproc, &length, NULL, 0) == -1) {
-    free(lproc);
+    FREE_C_HEAP_ARRAY(struct kinfo_proc, lproc);
     return OS_ERR;
   }
 
@@ -702,7 +702,10 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     if (plen == 0) {
       continue;
     }
-    char *path = NEW_C_HEAP_ARRAY(char, plen + 1, mtInternal);
+    char *path = NEW_C_HEAP_ARRAY_RETURN_NULL(char, plen + 1, mtInternal);
+    if (path == NULL) {
+      continue;
+    }
     strncpy(path, pbuf, plen);
     path[plen] = '\0';
 
@@ -719,9 +722,11 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
           abuf[j] = ' ';
         }
       }
-      cmdline = NEW_C_HEAP_ARRAY(char, alen + 1, mtInternal);
-      strncpy(cmdline, abuf, alen);
-      cmdline[alen] = '\0';
+      cmdline = NEW_C_HEAP_ARRAY_RETURN_NULL(char, alen + 1, mtInternal);
+      if (cmdline != NULL) {
+        strncpy(cmdline, abuf, alen);
+        cmdline[alen] = '\0';
+      }
     }
 
     SystemProcess* current = new SystemProcess();
@@ -733,7 +738,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     process_count++;
   }
 
-  free(lproc);
+  FREE_C_HEAP_ARRAY(struct kinfo_proc, lproc);
   *no_of_sys_processes = process_count;
   *system_processes = next;
 
@@ -749,15 +754,15 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     return OS_ERR;
   }
 
-  lproc = (struct kinfo_proc *)malloc(length);
-  if (!lproc) {
+  lproc = NEW_C_HEAP_ARRAY_RETURN_NULL(struct kinfo_proc, length, mtInternal);
+  if (lproc == NULL) {
     return OS_ERR;
   }
 
   mib[5] = length / sizeof(struct kinfo_proc);
 
   if (sysctl(mib, miblen, lproc, &length, NULL, 0) == -1) {
-    free(lproc);
+    FREE_C_HEAP_ARRAY(struct kinfo_proc, lproc);
     return OS_ERR;
   }
 
@@ -776,7 +781,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     }
 
     // Allocate space for args and get the arguments
-    char **argv = (char **)malloc(length);
+    char **argv = NEW_C_HEAP_ARRAY_RETURN_NULL(char*, length, mtInternal);
     if (argv == NULL) {
       ret = OS_ERR;
       break;
@@ -784,12 +789,12 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
 
     if (sysctl(pmib, pmiblen, argv, &length, NULL, 0) == -1) {
       ret = OS_ERR;
-      free(argv);
+      FREE_C_HEAP_ARRAY(char*, argv);
       break;
     }
 
     if (argv[0] == NULL) {
-      free(argv);
+      FREE_C_HEAP_ARRAY(char*, argv);
       continue;
     }
 
@@ -807,10 +812,10 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
       process_count++;
     }
 
-    free(argv);
+    FREE_C_HEAP_ARRAY(char*, argv);
   }
 
-  free(lproc);
+  FREE_C_HEAP_ARRAY(struct kinfo_proc, lproc);
 
   if (ret != OS_OK) {
     SystemProcess* current = next;
@@ -837,15 +842,15 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     return OS_ERR;
   }
 
-  lproc = (struct kinfo_proc2 *) malloc(length);
-  if (!lproc) {
+  lproc = NEW_C_HEAP_ARRAY_RETURN_NULL(struct kinfo_proc2, length, mtInternal);
+  if (lproc == NULL) {
     return OS_ERR;
   }
 
   mib[5] = length / sizeof(struct kinfo_proc2);
 
   if (sysctl(mib, miblen, lproc, &length, NULL, 0) == -1) {
-    free(lproc);
+    FREE_C_HEAP_ARRAY(struct kinfo_proc2, lproc);
     return OS_ERR;
   }
 
@@ -866,7 +871,10 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     if (plen == 0) {
       continue;
     }
-    char *path = NEW_C_HEAP_ARRAY(char, plen + 1, mtInternal);
+    char *path = NEW_C_HEAP_ARRAY_RETURN_NULL(char, plen + 1, mtInternal);
+    if (path == NULL) {
+      continue;
+    }
     strncpy(path, pbuf, plen);
     path[plen] = '\0';
 
@@ -883,9 +891,11 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
           abuf[j] = ' ';
         }
       }
-      cmdline = NEW_C_HEAP_ARRAY(char, alen + 1, mtInternal);
-      strncpy(cmdline, abuf, alen);
-      cmdline[alen] = '\0';
+      cmdline = NEW_C_HEAP_ARRAY_RETURN_NULL(char, alen + 1, mtInternal);
+      if (cmdline != NULL) {
+        strncpy(cmdline, abuf, alen);
+        cmdline[alen] = '\0';
+      }
     }
 
     SystemProcess* current = new SystemProcess();
@@ -897,7 +907,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
     process_count++;
   }
 
-  free(lproc);
+  FREE_C_HEAP_ARRAY(struct kinfo_proc2, lproc);
   *no_of_sys_processes = process_count;
   *system_processes = next;
 
