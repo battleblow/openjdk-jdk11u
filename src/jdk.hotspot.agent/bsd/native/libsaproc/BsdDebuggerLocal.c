@@ -38,6 +38,10 @@
 #include "sun_jvm_hotspot_debugger_amd64_AMD64ThreadContext.h"
 #endif
 
+#ifdef aarch64
+#include "sun_jvm_hotspot_debugger_aarch64_AARCH64ThreadContext.h"
+#endif
+ 
 #ifdef ppc64
 #include "sun_jvm_hotspot_debugger_ppc64_PPC64ThreadContext.h"
 #endif
@@ -372,6 +376,19 @@ JNIEXPORT jlongArray JNICALL Java_sun_jvm_hotspot_debugger_bsd_BsdDebuggerLocal_
 //  regs[REG_INDEX(GS)] = gregs.gs;
 
 #endif /* amd64 */
+
+#if defined(aarch64)
+
+#define REG_INDEX(reg) sun_jvm_hotspot_debugger_aarch64_AARCH64ThreadContext_##reg
+
+  {
+    int i;
+    for (i = 0; i < 31; i++)
+      regs[i] = gregs.regs[i];
+    regs[REG_INDEX(SP)] = gregs.gp_sp;
+    regs[REG_INDEX(PC)] = gregs.gp_elr;
+  }
+#endif /* aarch64 */
 
 #if defined(sparc) || defined(sparcv9)
 
