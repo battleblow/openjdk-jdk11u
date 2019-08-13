@@ -64,6 +64,9 @@ public class SigTestDriver {
                 } else if (Platform.isOSX()) {
                     System.out.println("SKIPPED: SIGUSR2 can't be tested on OS X, ignore.");
                     return;
+                } else if (Platform.isBSD()) {
+                    System.out.println("SKIPPED: SIGUSR2 can't be tested on BSD, ignore.");
+                    return;
                 }
             }
         }
@@ -96,7 +99,10 @@ public class SigTestDriver {
 
         boolean passed = true;
 
-        for (String mode : new String[]{"sigset", "sigaction"}) {
+        String[] functions = Platform.getOsName().equals("OpenBSD") ? new String[]{"sigaction"} :
+                new String[]{"sigset", "sigaction"};
+
+        for (String mode : functions) {
             for (String scenario : new String[] {"nojvm", "prepre", "prepost", "postpre", "postpost"}) {
                 cmd.set(modeIdx, mode);
                 cmd.set(scenarioIdx, scenario);
