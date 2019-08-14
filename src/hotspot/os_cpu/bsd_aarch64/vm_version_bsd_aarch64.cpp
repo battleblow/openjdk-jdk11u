@@ -60,6 +60,22 @@
 #define HWCAP_ATOMICS (1<<8)
 #endif
 
+#ifndef ID_AA64PFR0_AdvSIMD_SHIFT
+#define ID_AA64PFR0_AdvSIMD_SHIFT 20
+#endif
+
+#ifndef ID_AA64PFR0_AdvSIMD
+#define ID_AA64PFR0_AdvSIMD(x) ((x) & (UL(0xf) << ID_AA64PFR0_AdvSIMD_SHIFT))
+#endif
+
+#ifndef ID_AA64PFR0_AdvSIMD_IMPL
+#define ID_AA64PFR0_AdvSIMD_IMPL (UL(0x0) << ID_AA64PFR0_AdvSIMD_SHIFT)
+#endif
+
+#ifndef ID_AA64PFR0_AdvSIMD_HP
+#define ID_AA64PFR0_AdvSIMD_HP (UL(0x1) << ID_AA64PFR0_AdvSIMD_SHIFT)
+#endif
+
 #define	CPU_IMPL_ARM		0x41
 #define	CPU_IMPL_BROADCOM	0x42
 #define	CPU_IMPL_CAVIUM		0x43
@@ -234,19 +250,11 @@ unsigned long VM_Version::os_get_processor_features() {
   if (ID_AA64ISAR0_CRC32(id_aa64isar0) == ID_AA64ISAR0_CRC32_BASE) {
     auxv = auxv | CPU_CRC32;
   }
-/* FreeBSD 12.0-STABLE(as of 2019-08-14) */
-  #if defined(ID_AA64PFR0_ADV_SIMD)
-  if (ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_IMPL || \
-	      ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_HP ) {
-    auxv = auxv | HWCAP_ASIMD;
-	  }
-	/* FreeBSD ≥ 12.1 */
-	#elif defined(ID_AA64PFR0_AdvSIMD)
-	if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
+ 
+  if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
       ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_HP ) {
     auxv = auxv | HWCAP_ASIMD;
   }
-  #endif
 	
   return auxv;
 }
