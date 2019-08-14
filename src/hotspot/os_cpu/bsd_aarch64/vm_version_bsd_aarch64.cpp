@@ -188,29 +188,38 @@ unsigned long VM_Version::os_get_processor_features() {
   id_aa64pfr0 = READ_SPECIALREG(ID_AA64PFR0_EL1);
 
   if (ID_AA64ISAR0_AES(id_aa64isar0) == ID_AA64ISAR0_AES_BASE) {
-    auxv = auxv | HWCAP_AES;
+    auxv = auxv | CPU_AES;
   }
 
   if (ID_AA64ISAR0_AES(id_aa64isar0) == ID_AA64ISAR0_AES_PMULL) {
-    auxv = auxv | HWCAP_PMULL;
+    auxv = auxv | CPU_PMULL;
   }
 
   if (ID_AA64ISAR0_SHA1(id_aa64isar0) == ID_AA64ISAR0_SHA1_BASE) {
-    auxv = auxv | HWCAP_SHA1;
+    auxv = auxv | CPU_SHA1;
   }
 
   if (ID_AA64ISAR0_SHA2(id_aa64isar0) == ID_AA64ISAR0_SHA2_BASE) {
-    auxv = auxv | HWCAP_SHA2;
+    auxv = auxv | CPU_SHA2;
   }
 
   if (ID_AA64ISAR0_CRC32(id_aa64isar0) == ID_AA64ISAR0_CRC32_BASE) {
-    auxv = auxv | HWCAP_CRC32;
+    auxv = auxv | CPU_CRC32;
   }
-
-  if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
+/* FreeBSD < 12.1 */
+  #if defined(ID_AA64PFR0_ADV_SIMD)
+  if (ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_IMPL || \
+	      ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_HP ) {
+    auxv = auxv | CPU_ASIMD;
+	  }
+	/* FreeBSD > 12.0 */
+	#elif defined(ID_AA64PFR0_AdvSIMD)
+	if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
       ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_HP ) {
-    auxv = auxv | HWCAP_ASIMD;
+    auxv = auxv | CPU_ASIMD;
   }
-
+  #endif
+	
   return auxv;
 }
+
