@@ -32,6 +32,34 @@
 #include <machine/elf.h>
 #endif
 
+#ifndef HWCAP_ASIMD
+#define HWCAP_ASIMD (1<<1)
+#endif
+
+#ifndef HWCAP_AES
+#define HWCAP_AES   (1<<3)
+#endif
+
+#ifndef HWCAP_PMULL
+#define HWCAP_PMULL (1<<4)
+#endif
+
+#ifndef HWCAP_SHA1
+#define HWCAP_SHA1  (1<<5)
+#endif
+
+#ifndef HWCAP_SHA2
+#define HWCAP_SHA2  (1<<6)
+#endif
+
+#ifndef HWCAP_CRC32
+#define HWCAP_CRC32 (1<<7)
+#endif
+
+#ifndef HWCAP_ATOMICS
+#define HWCAP_ATOMICS (1<<8)
+#endif
+
 #define	CPU_IMPL_ARM		0x41
 #define	CPU_IMPL_BROADCOM	0x42
 #define	CPU_IMPL_CAVIUM		0x43
@@ -210,13 +238,13 @@ unsigned long VM_Version::os_get_processor_features() {
   #if defined(ID_AA64PFR0_ADV_SIMD)
   if (ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_IMPL || \
 	      ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_HP ) {
-    auxv = auxv | CPU_ASIMD;
+    auxv = auxv | HWCAP_ASIMD;
 	  }
 	/* FreeBSD > 12.0 */
 	#elif defined(ID_AA64PFR0_AdvSIMD)
 	if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
       ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_HP ) {
-    auxv = auxv | CPU_ASIMD;
+    auxv = auxv | HWCAP_ASIMD;
   }
   #endif
 	
