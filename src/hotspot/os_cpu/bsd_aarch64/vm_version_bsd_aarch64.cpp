@@ -232,23 +232,23 @@ unsigned long VM_Version::os_get_processor_features() {
   id_aa64pfr0 = READ_SPECIALREG(ID_AA64PFR0_EL1);
 
   if (ID_AA64ISAR0_AES(id_aa64isar0) == ID_AA64ISAR0_AES_BASE) {
-    auxv = auxv | CPU_AES;
+    auxv = auxv | HWCAP_AES;
   }
 
   if (ID_AA64ISAR0_AES(id_aa64isar0) == ID_AA64ISAR0_AES_PMULL) {
-    auxv = auxv | CPU_PMULL;
+    auxv = auxv | HWCAP_PMULL;
   }
 
   if (ID_AA64ISAR0_SHA1(id_aa64isar0) == ID_AA64ISAR0_SHA1_BASE) {
-    auxv = auxv | CPU_SHA1;
+    auxv = auxv | HWCAP_SHA1;
   }
 
   if (ID_AA64ISAR0_SHA2(id_aa64isar0) == ID_AA64ISAR0_SHA2_BASE) {
-    auxv = auxv | CPU_SHA2;
+    auxv = auxv | HWCAP_SHA2;
   }
 
   if (ID_AA64ISAR0_CRC32(id_aa64isar0) == ID_AA64ISAR0_CRC32_BASE) {
-    auxv = auxv | CPU_CRC32;
+    auxv = auxv | HWCAP_CRC32;
   }
  
   if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
