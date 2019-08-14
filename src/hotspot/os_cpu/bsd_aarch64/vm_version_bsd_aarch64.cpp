@@ -234,13 +234,13 @@ unsigned long VM_Version::os_get_processor_features() {
   if (ID_AA64ISAR0_CRC32(id_aa64isar0) == ID_AA64ISAR0_CRC32_BASE) {
     auxv = auxv | CPU_CRC32;
   }
-/* FreeBSD < 12.1 */
+/* FreeBSD 12.0-STABLE(as of 2019-08-14) */
   #if defined(ID_AA64PFR0_ADV_SIMD)
   if (ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_IMPL || \
 	      ID_AA64PFR0_ADV_SIMD(id_aa64pfr0) == ID_AA64PFR0_ADV_SIMD_HP ) {
     auxv = auxv | HWCAP_ASIMD;
 	  }
-	/* FreeBSD > 12.0 */
+	/* FreeBSD ≥ 12.1 */
 	#elif defined(ID_AA64PFR0_AdvSIMD)
 	if (ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_IMPL || \
       ID_AA64PFR0_AdvSIMD(id_aa64pfr0) == ID_AA64PFR0_AdvSIMD_HP ) {
