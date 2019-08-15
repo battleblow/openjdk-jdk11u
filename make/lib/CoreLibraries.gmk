@@ -260,7 +260,7 @@ TARGETS += $(BUILD_LIBJLI)
 
 LIBJLI_SRC_DIRS := $(call FindSrcDirsForComponent, java.base, libjli)
 
-ifeq ($(OPENJDK_TARGET_OS), aix)
+ifneq ($(findstring $(OPENJDK_TARGET_OS), aix bsd), )
   # AIX also requires a static libjli because the compiler doesn't support '-rpath'
   $(eval $(call SetupNativeCompilation, BUILD_LIBJLI_STATIC, \
       NAME := jli_static, \

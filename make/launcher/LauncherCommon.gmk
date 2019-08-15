@@ -30,7 +30,7 @@ ORIGIN_ARG := $(call SET_EXECUTABLE_ORIGIN,/../lib/jli)
 # Applications expect to be able to link against libjawt without invoking
 # System.loadLibrary("jawt") first. This was the behaviour described in the
 # devloper documentation of JAWT and what worked with OpenJDK6.
-ifneq ($(findstring $(OPENJDK_TARGET_OS), linux solaris bsd), )
+ifneq ($(findstring $(OPENJDK_TARGET_OS), linux solaris), )
   ORIGIN_ARG += $(call SET_EXECUTABLE_ORIGIN,/../lib)
 endif
 
@@ -144,7 +144,7 @@ define SetupBuildLauncherBody
         -framework ApplicationServices
   endif
 
-  ifeq ($(OPENJDK_TARGET_OS), aix)
+  ifneq ($(findstring $(OPENJDK_TARGET_OS), aix bsd), )
     $1_LDFLAGS += -L$(SUPPORT_OUTPUTDIR)/native/java.base
     $1_LIBS += -ljli_static
   endif
@@ -178,12 +178,10 @@ define SetupBuildLauncherBody
           -L$(call FindLibDirForModule, java.base)/jli, \
       LDFLAGS_solaris := $$($1_LDFLAGS_solaris) \
           -L$(call FindLibDirForModule, java.base)/jli, \
-      LDFLAGS_bsd := \
-          -L$(call FindLibDirForModule, java.base)/jli, \
       LIBS := $(JDKEXE_LIBS) $$($1_LIBS), \
       LIBS_unix := $$($1_LIBS_unix), \
       LIBS_linux := -lpthread -ljli $(LIBDL), \
-      LIBS_bsd := -pthread -ljli $(LIBDL), \
+      LIBS_bsd := -pthread, \
       LIBS_macosx := -ljli, \
       LIBS_solaris := -ljli -lthread $(LIBDL), \
       LIBS_windows := $$($1_WINDOWS_JLI_LIB) \
@@ -200,7 +198,7 @@ define SetupBuildLauncherBody
   $1 += $$(BUILD_LAUNCHER_$1)
   TARGETS += $$($1)
 
-  ifeq ($(OPENJDK_TARGET_OS), aix)
+  ifneq ($(findstring $(OPENJDK_TARGET_OS), aix bsd), )
     $$(BUILD_LAUNCHER_$1): $(SUPPORT_OUTPUTDIR)/native/java.base/libjli_static.a
   endif
 
