@@ -734,6 +734,13 @@ AC_DEFUN([FLAGS_SETUP_CFLAGS_CPU_DEP],
     fi
   fi
 
+  if test "x$TOOLCHAIN_TYPE" = xclang; then
+    if test "x$FLAGS_CPU" = xarm; then
+      $1_CFLAGS_CPU="-fsigned-char $ARM_ARCH_TYPE_FLAGS $ARM_FLOAT_TYPE_FLAGS -DJDK_ARCH_ABI_PROP_NAME='\"\$(JDK_ARCH_ABI_PROP_NAME)\"'"
+      $1_CFLAGS_CPU_JVM="-DARM"
+    fi
+  fi
+
   if test "x$TOOLCHAIN_TYPE" = xgcc; then
     if test "x$FLAGS_CPU" = xarm; then
       # -Wno-psabi to get rid of annoying "note: the mangling of 'va_list' has changed in GCC 4.4"
