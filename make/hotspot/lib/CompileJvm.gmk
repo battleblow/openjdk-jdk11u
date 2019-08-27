@@ -87,6 +87,9 @@ CFLAGS_VM_VERSION := \
 ifeq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU), linux-arm)
   JVM_EXCLUDE_PATTERNS += arm_64
 
+else ifeq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU), bsd-arm)
+  JVM_EXCLUDE_PATTERNS += arm_64
+
 else ifeq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU), linux-aarch64)
   # For 64-bit arm builds, we use the 64 bit hotspot/src/cpu/arm
   # hotspot sources if HOTSPOT_TARGET_CPU_ARCH is set to arm.
