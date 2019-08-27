@@ -110,10 +110,14 @@ void VM_Version::early_initialize() {
   // use proper dmb instruction
   get_os_cpu_info();
 
+#if defined(__linux__)
   _kuser_helper_version = *(int*)KUSER_HELPER_VERSION_ADDR;
   // armv7 has the ldrexd instruction that can be used to implement cx8
   // armv5 with linux >= 3.1 can use kernel helper routine
   _supports_cx8 = (supports_ldrexd() || supports_kuser_cmpxchg64());
+#else
+  _supports_cx8 = supports_ldrexd();
+#endif
 }
 
 void VM_Version::initialize() {
