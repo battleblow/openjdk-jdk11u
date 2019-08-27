@@ -26,23 +26,35 @@
 #include "runtime/os.hpp"
 #include "vm_version_arm.hpp"
 
-# include <sys/utsname.h>
+# include <sys/types.h>
+# include <sys/sysctl.h>
 
-// Use uname() to find the architecture version
+// Use sysctl() to find the architecture version
 void VM_Version::get_os_cpu_info() {
-  struct utsname name;
   static bool done = false;
+
+  int mib[2];
+  size_t len;
+  char machine[8]; // 8 chars max : "arm" + "v6|v7" + "|eb" + '\0'
 
   // Support for multiple calls in the init phase
   if (done) return;
   done = true;
 
-  uname(&name);
-  if (strncmp(name.machine, "aarch64", 7) == 0) {
+  mib[0] = CTL_HW;
+  mib[1] = HW_MACHINE_ARCH;
+
+  len = sizeof(machine);
+  if (sysctl(mib, 2, machine, &len, NULL, 0) == -1) {
+    _arm_arch = 6; // XXX sane default
+    return;
+  }
+
+  if (strncmp(machine, "aarch64", 7) == 0) {
     _arm_arch = 8;
-  } else if (strncmp(name.machine, "armv", 4) == 0 &&
-      name.machine[4] >= '5' && name.machine[4] <= '9') {
-    _arm_arch = (int)(name.machine[4] - '0');
+  } else if (strncmp(machine, "armv", 4) == 0 &&
+      machine[4] >= '5' && machine[4] <= '9') {
+    _arm_arch = (int)(machine[4] - '0');
   }
 }
 
