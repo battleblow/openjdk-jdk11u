@@ -32,8 +32,8 @@ class ICache : public AbstractICache {
  public:
   enum {
     stub_size      = 32,                // Size of the icache flush stub in bytes
-    line_size      = BytesPerWord,      // conservative
-    log2_line_size = LogBytesPerWord    // log2(line_size)
+    log2_line_size = 6,
+    line_size      = 1 << log2_line_size
   };
 };
 
