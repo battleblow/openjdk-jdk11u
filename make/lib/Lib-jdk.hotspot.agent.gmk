@@ -80,6 +80,8 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBSA, \
     LIBS_windows := dbgeng.lib, \
 ))
 
-TARGETS += $(BUILD_LIBSA)
+ifneq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU), bsd-arm)
+  TARGETS += $(BUILD_LIBSA)
+endif
 
 ################################################################################
