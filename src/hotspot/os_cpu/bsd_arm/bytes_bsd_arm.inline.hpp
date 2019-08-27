@@ -25,7 +25,9 @@
 #ifndef OS_CPU_BSD_ARM_VM_BYTES_BSD_ARM_INLINE_HPP
 #define OS_CPU_BSD_ARM_VM_BYTES_BSD_ARM_INLINE_HPP
 
-#include <byteswap.h>
+#define bswap_16(x) __bswap16(x)
+#define bswap_32(x) __bswap32(x)
+#define bswap_64(x) __bswap64(x)
 
 // Efficient swapping of data bytes from Java byte
 // ordering to native byte ordering and vice versa.
