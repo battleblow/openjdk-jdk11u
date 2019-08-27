@@ -62,7 +62,6 @@
 # include <stdio.h>
 # include <unistd.h>
 # include <sys/resource.h>
-# include <pthread.h>
 # include <sys/stat.h>
 # include <sys/time.h>
 # include <sys/utsname.h>
@@ -71,19 +70,9 @@
 # include <pwd.h>
 # include <poll.h>
 # include <ucontext.h>
-# include <fpu_control.h>
-# include <asm/ptrace.h>
 
-#define SPELL_REG_SP  "sp"
-
-// Don't #define SPELL_REG_FP for thumb because it is not safe to use, so this makes sure we never fetch it.
-#ifndef __thumb__
-#define SPELL_REG_FP  AARCH64_ONLY("x29") NOT_AARCH64("fp")
-#endif
-
-address os::current_stack_pointer() {
-  register address sp __asm__ (SPELL_REG_SP);
-  return sp;
+NOINLINE address os::current_stack_pointer() {
+  return (address)__builtin_frame_address(0);
 }
 
 char* os::non_memory_address_word() {
@@ -101,17 +90,11 @@ char* os::non_memory_address_word() {
 
 #else
 
-#if NGREG == 16
-// These definitions are based on the observation that until
-// the certain version of GCC mcontext_t was defined as
-// a structure containing gregs[NGREG] array with 16 elements.
-// In later GCC versions mcontext_t was redefined as struct sigcontext,
-// along with NGREG constant changed to 18.
-#define arm_pc gregs[15]
-#define arm_sp gregs[13]
-#define arm_fp gregs[11]
-#define arm_r0 gregs[0]
-#endif
+#define arm_pc __gregs[15]
+#define arm_sp __gregs[13]
+#define arm_fp __gregs[11]
+#define arm_r0 __gregs[0]
+#define arm_cpsr __gregs[16]
 
 #define ARM_REGS_IN_CONTEXT  16
 
@@ -231,12 +214,12 @@ frame os::get_sender_for_C_frame(frame* fr) {
 // very intuitive, but consistent with how this API is implemented on other
 // platforms.
 //
-frame os::current_frame() {
+NOINLINE frame os::current_frame() {
 #ifdef __thumb__
   // We can't reliably get anything from a thumb C frame.
   return frame();
 #else
-  register intptr_t* fp __asm__ (SPELL_REG_FP);
+  intptr_t *fp = *(intptr_t **)__builtin_frame_address(0);
   // fp is for os::current_frame. We want the fp for our caller.
   frame myframe((intptr_t*)os::current_stack_pointer(), fp + os::C_frame_offset,
                  CAST_FROM_FN_PTR(address, os::current_frame));
@@ -362,21 +345,6 @@ extern "C" int JVM_handle_bsd_signal(int sig, siginfo_t* info,
           // to handle_unexpected_exception way down below.
           thread->disable_stack_red_zone();
           tty->print_raw_cr("An irrecoverable stack overflow has occurred.");
-        } else {
-          // Accessing stack address below sp may cause SEGV if current
-          // thread has MAP_GROWSDOWN stack. This should only happen when
-          // current thread was created by user code with MAP_GROWSDOWN flag
-          // and then attached to VM. See notes in os_bsd.cpp.
-          if (thread->osthread()->expanding_stack() == 0) {
-             thread->osthread()->set_expanding_stack();
-             if (os::Bsd::manually_expand_stack(thread, addr)) {
-               thread->osthread()->clear_expanding_stack();
-               return 1;
-             }
-             thread->osthread()->clear_expanding_stack();
-          } else {
-             fatal("recursive segv. expanding stack.");
-          }
         }
       }
     }
@@ -499,14 +467,6 @@ void os::Bsd::init_thread_fpu_state(void) {
   os::setup_fpu();
 }
 
-int os::Bsd::get_fpu_control_word(void) {
-  return 0;
-}
-
-void os::Bsd::set_fpu_control_word(int fpu_control) {
-  // Nothing to do
-}
-
 void os::setup_fpu() {
 #ifdef AARCH64
   __asm__ volatile ("msr fpcr, xzr");
@@ -514,8 +474,8 @@ void os::setup_fpu() {
 #if !defined(__SOFTFP__) && defined(__VFP_FP__)
   // Turn on IEEE-754 compliant VFP mode
   __asm__ volatile (
-    "mov %%r0, #0;"
-    "fmxr fpscr, %%r0"
+    "mov r0, #0;"
+    "fmxr fpscr, r0"
     : /* no output */ : /* no input */ : "r0"
   );
 #endif
