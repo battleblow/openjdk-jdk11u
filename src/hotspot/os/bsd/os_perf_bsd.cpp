@@ -34,7 +34,9 @@
   #include <mach/mach.h>
   #include <mach/task_info.h>
 #else
+#if !defined(__arm__)
   #include <sys/user.h>
+#endif
   #include <sys/sched.h>
   #include <sys/resource.h>
   #define NET_RT_IFLIST2 NET_RT_IFLIST
@@ -664,7 +666,7 @@ int SystemProcessInterface::SystemProcesses::system_processes(SystemProcess** sy
   *system_processes = next;
 
   return OS_OK;
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) && !defined(__arm__)
   struct kinfo_proc *lproc;
   int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PROC };
   const u_int miblen = sizeof(mib) / sizeof(mib[0]);
