@@ -30,7 +30,7 @@
   #define __has_attribute(x) 0
 #endif
 #if (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4) && (__GNUC_MINOR__ > 2))) || __has_attribute(visibility)
-  #ifdef ARM
+  #if defined(ARM) && !defined(__clang__)
     #define JNIEXPORT     __attribute__((externally_visible,visibility("default")))
     #define JNIIMPORT     __attribute__((externally_visible,visibility("default")))
   #else
