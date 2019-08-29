@@ -247,6 +247,9 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JDK_OPTIONS],
   if test "x$OPENJDK_TARGET_OS_ENV" = xbsd.netbsd ; then
     INCLUDE_SA=false
   fi
+  if test "x$OPENJDK_TARGET_OS_ENV-$OPENJDK_TARGET_CPU" = xbsd.freebsd-arm ; then
+    INCLUDE_SA=false
+  fi
   AC_SUBST(INCLUDE_SA)
 
   # Compress jars
