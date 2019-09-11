@@ -108,14 +108,20 @@
 # include <sys/syscall.h>
 
 #ifdef __FreeBSD__
-# if __FreeBSD_version > 900030
-#  include <pthread_np.h>
-# else
-#  include <sys/thr.h>
-# endif
+# include <pthread_np.h>
 # include <sys/cpuset.h>
 # include <vm/vm_param.h>
-#endif
+# include <sys/procctl.h>
+# ifndef PROC_STACKGAP_DISABLE
+#  define PROC_STACKGAP_DISABLE   0x0002
+# endif
+# ifndef PROC_STACKGAP_CTL
+#  define PROC_STACKGAP_CTL       17
+# endif
+# ifndef PROC_STACKGAP_STATUS
+#  define PROC_STACKGAP_STATUS    18
+# endif
+#endif /* __FreeBSD__ */
 
 #ifdef __NetBSD__
 #include <lwp.h>
@@ -795,6 +801,24 @@ bool os::create_thread(Thread* thread, ThreadType thr_type,
   size_t stack_size = os::Posix::get_initial_stack_size(thr_type, req_stack_size);
   int status = pthread_attr_setstacksize(&attr, stack_size);
   assert_status(status == 0, status, "pthread_attr_setstacksize");
+#ifdef __FreeBSD__
+  /*
+   * Determine whether the kernel stack guard pages have been disabled
+   * If not, set the stack guard size to cover them
+   */
+  int proc_status = 0;
+  int ret = procctl(P_PID, getpid(), PROC_STACKGAP_STATUS, &proc_status);
+
+  if (ret == -1 || !(proc_status & PROC_STACKGAP_DISABLE)) {
+    int guard_pages = 0;
+    size_t size = sizeof(guard_pages);
+    if (sysctlbyname("security.bsd.stack_guard_page",
+                     &guard_pages, &size, NULL, 0) == 0 &&
+        guard_pages > 0) {
+      pthread_attr_setguardsize(&attr, guard_pages * getpagesize());
+    }
+  }
+#endif /* __FreeBSD__ */
 
   ThreadState state;
 
@@ -2255,10 +2279,6 @@ bool os::pd_uncommit_memory(char* addr, size_t size) {
   return res  != (uintptr_t) MAP_FAILED;
 }
 
-bool os::pd_create_stack_guard_pages(char* addr, size_t size) {
-  return os::commit_memory(addr, size, !ExecMem);
-}
-
 // If this is a growable mapping, remove the guard pages entirely by
 // munmap()ping them.  If not, just call uncommit_memory().
 bool os::remove_stack_guard_pages(char* addr, size_t size) {
@@ -2341,6 +2361,35 @@ bool os::guard_memory(char* addr, size_t size) {
 
 bool os::unguard_memory(char* addr, size_t size) {
   return bsd_mprotect(addr, size, PROT_READ|PROT_WRITE);
+}
+
+bool os::pd_create_stack_guard_pages(char* addr, size_t size) __attribute__ ((optnone)) {
+#ifdef __FreeBSD__
+  int proc_status = 0;
+  int ret = procctl(P_PID, getpid(), PROC_STACKGAP_STATUS, &proc_status);
+
+  if (ret == -1 || !(proc_status & PROC_STACKGAP_DISABLE)) {
+    // Additional kernel stack guard page workaround to get the
+    // os::guard_memory() call to succeed.
+    // This first call to bsd_mprotect is not effective until the pages are
+    // touched. It is needed because the ContinueInNewThread0 thread ends
+    // up placing the guard pages twice and the second time it is called the
+    // pages are PROT_NONE.
+    bsd_mprotect(addr, size, PROT_READ|PROT_WRITE);
+
+    // Read from the pages so that they get paged in and the later call to
+    // os::guard_memory() will succeed.
+    for (char *pos = addr; pos < addr + size; pos += os::Bsd::page_size()) {
+      char c = *pos;
+    }
+    return true;
+  }
+  else {
+#endif /* __FreeBSD__ */
+  return os::commit_memory(addr, size, !ExecMem);
+#ifdef __FreeBSD__
+  }
+#endif /* __FreeBSD__ */
 }
 
 bool os::Bsd::hugetlbfs_sanity_check(bool warn, size_t page_size) {

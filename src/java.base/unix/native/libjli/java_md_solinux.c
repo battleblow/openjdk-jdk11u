@@ -44,6 +44,9 @@
 #ifndef PROC_STACKGAP_CTL
 #define PROC_STACKGAP_CTL	17
 #endif
+#ifndef PROC_STACKGAP_STATUS
+#define PROC_STACKGAP_STATUS	18
+#endif
 #endif /* __FreeBSD__ */
 #include "manifest_info.h"
 
@@ -769,11 +772,30 @@ ContinueInNewThread0(int (JNICALL *continuation)(void *), jlong stack_size, void
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    int guard_size = 0;
+#ifdef __FreeBSD__
+    /*
+     * Determine whether the kernel stack guard pages have been disabled
+     * If not, set the stack guard size to cover them
+     */
+    int status = 0;
+    int ret = procctl(P_PID, getpid(), PROC_STACKGAP_STATUS, &status);
+
+    if (ret == -1 || !(status & PROC_STACKGAP_DISABLE)) {
+      int guard_pages = 0;
+      size_t size = sizeof(guard_pages);
+      if (sysctlbyname("security.bsd.stack_guard_page",
+                       &guard_pages, &size, NULL, 0) == 0 &&
+          guard_pages > 0) {
+        guard_size = guard_pages * getpagesize();
+      }
+    }
+#endif /* __FreeBSD__ */
 
     if (stack_size > 0) {
       pthread_attr_setstacksize(&attr, stack_size);
     }
-    pthread_attr_setguardsize(&attr, 0); // no pthread guard page on java threads
+    pthread_attr_setguardsize(&attr, guard_size); // no pthread guard page on java threads
 
     if (pthread_create(&tid, &attr, (void *(*)(void*))continuation, (void*)args) == 0) {
       void * tmp;
