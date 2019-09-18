@@ -251,10 +251,17 @@ void VM_Version::get_processor_features() {
   }
 
   if (_cpu == CPU_ARM && (_model == 0xd07 || _model2 == 0xd07)) _features |= CPU_STXR_PREFETCH;
+
+#ifdef _BSDONLY_SOURCE
+  // A53 can be combined with A57 and A72 at least. Let's be more
+  // conservative and enable CPU_A53MAC work-around for all ARM boards
+  if (_cpu == CPU_ARM) _features |= CPU_A53MAC;
+#else
   // If an olde style /proc/cpuinfo (cpu_lines == 1) then if _model is an A57 (0xd07)
   // we assume the worst and assume we could be on a big little system and have
   // undisclosed A53 cores which we could be swapped to at any stage
   if (_cpu == CPU_ARM && cpu_lines == 1 && _model == 0xd07) _features |= CPU_A53MAC;
+#endif
 
   sprintf(buf, "0x%02x:0x%x:0x%03x:%d", _cpu, _variant, _model, _revision);
   if (_model2) sprintf(buf+strlen(buf), "(0x%03x)", _model2);
