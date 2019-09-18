@@ -72,8 +72,8 @@
 # include <sys/wait.h>
 # include <pwd.h>
 # include <poll.h>
-# include <ucontext.h>
 #ifdef __FreeBSD__
+# include <ucontext.h>
 # include <sys/sysctl.h>
 # include <sys/procctl.h>
 # ifndef PROC_STACKGAP_STATUS
@@ -85,7 +85,6 @@
 #endif /* __FreeBSD__ */
 
 #define REG_FP 29
-#define REG_LR 30
 
 NOINLINE address os::current_stack_pointer() {
   return (address)__builtin_frame_address(0);
@@ -100,19 +99,35 @@ char* os::non_memory_address_word() {
 }
 
 address os::Bsd::ucontext_get_pc(const ucontext_t * uc) {
+#if defined(__FreeBSD__)
   return (address)uc->uc_mcontext.mc_gpregs.gp_elr;
+#elif defined(__OpenBSD__)
+  return (address)uc->sc_elr;
+#endif
 }
 
 void os::Bsd::ucontext_set_pc(ucontext_t * uc, address pc) {
+#if defined(__FreeBSD__)
   uc->uc_mcontext.mc_gpregs.gp_elr = (intptr_t)pc;
+#elif defined(__OpenBSD__)
+  uc->sc_elr = (unsigned long)pc;
+#endif
 }
 
 intptr_t* os::Bsd::ucontext_get_sp(const ucontext_t * uc) {
+#if defined(__FreeBSD__)
   return (intptr_t*)uc->uc_mcontext.mc_gpregs.gp_sp;
+#elif defined(__OpenBSD__)
+  return (intptr_t*)uc->sc_sp;
+#endif
 }
 
 intptr_t* os::Bsd::ucontext_get_fp(const ucontext_t * uc) {
+#if defined(__FreeBSD__)
   return (intptr_t*)uc->uc_mcontext.mc_gpregs.gp_x[REG_FP];
+#elif defined(__OpenBSD__)
+  return (intptr_t*)uc->sc_x[REG_FP];
+#endif
 }
 
 // For Forte Analyzer AsyncGetCallTrace profiling support - thread
@@ -183,8 +198,13 @@ bool os::Bsd::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t* u
       // belong to the caller.
       intptr_t* fp = os::Bsd::ucontext_get_fp(uc);
       intptr_t* sp = os::Bsd::ucontext_get_sp(uc);
+#if defined(__FreeBSD__)
       address pc = (address)(uc->uc_mcontext.mc_gpregs.gp_lr
                          - NativeInstruction::instruction_size);
+#elif defined(__OpenBSD__)
+      address pc = (address)(uc->sc_lr
+                         - NativeInstruction::instruction_size);
+#endif
       *fr = frame(sp, fp, pc);
       if (!fr->is_java_frame()) {
         assert(fr->safe_for_sender(thread), "Safety check");
@@ -528,7 +548,11 @@ void os::print_context(outputStream *st, const void *context) {
   st->print_cr("Registers:");
   for (int r = 0; r < 30; r++) {
     st->print("R%-2d=", r);
+#if defined(__FreeBSD__)
     print_location(st, uc->uc_mcontext.mc_gpregs.gp_x[r]);
+#elif defined(__OpenBSD__)
+    print_location(st, uc->sc_x[r]);
+#endif
   }
   st->cr();
 
@@ -560,7 +584,11 @@ void os::print_register_info(outputStream *st, const void *context) {
   // this is only for the "general purpose" registers
 
   for (int r = 0; r < 30; r++)
+#if defined(__FreeBSD__)
     st->print_cr(  "R%d=" INTPTR_FORMAT, r, (uintptr_t)uc->uc_mcontext.mc_gpregs.gp_x[r]);
+#elif defined(__OpenBSD__)
+    st->print_cr(  "R%d=" INTPTR_FORMAT, r, (uintptr_t)uc->sc_x[r]);
+#endif
   st->cr();
 }
 

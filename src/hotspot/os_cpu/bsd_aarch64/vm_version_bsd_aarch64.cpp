@@ -27,8 +27,8 @@
 #include "runtime/os.hpp"
 #include "vm_version_aarch64.hpp"
 
-#if defined (__FreeBSD__)
 #include <machine/armreg.h>
+#if defined (__FreeBSD__)
 #include <machine/elf.h>
 #endif
 
@@ -186,6 +186,17 @@ const struct cpu_implementers cpu_implementers[] = {
 	CPU_IMPLEMENTER_NONE,
 };
 
+#ifdef __OpenBSD__
+// READ_SPECIALREG is not available from userland on OpenBSD.
+// Hardcode these values to the "lowest common denominator"
+unsigned long VM_Version::os_get_processor_features() {
+  _cpu = CPU_IMPL_ARM;
+  _model = CPU_PART_CORTEX_A53;
+  _variant = 0;
+  _revision = 0;
+  return HWCAP_ASIMD;
+}
+#else
 unsigned long VM_Version::os_get_processor_features() {
   struct cpu_desc cpu_desc[1];
   struct cpu_desc user_cpu_desc;
@@ -259,3 +270,4 @@ unsigned long VM_Version::os_get_processor_features() {
 
   return auxv;
 }
+#endif

@@ -1480,7 +1480,7 @@ void MacroAssembler::movptr(Register r, uintptr_t imm64) {
 #ifndef PRODUCT
   {
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "0x%"PRIX64, imm64);
+    snprintf(buffer, sizeof(buffer), INTPTR_FORMAT, imm64);
     block_comment(buffer);
   }
 #endif
@@ -1945,7 +1945,7 @@ void MacroAssembler::decrement(Register reg, int value)
   if (value < (1 << 12)) { sub(reg, reg, value); return; }
   /* else */ {
     assert(reg != rscratch2, "invalid dst for register decrement");
-    mov(rscratch2, (unsigned long)value);
+    mov(rscratch2, (u_int64_t)value);
     sub(reg, reg, rscratch2);
   }
 }
@@ -2482,43 +2482,43 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
 #endif
     if (os::message_box(msg, "Execution stopped, print registers?")) {
       ttyLocker ttyl;
-      tty->print_cr(" pc = 0x%016lx", pc);
+      tty->print_cr(" pc = 0x" UINT64_FORMAT_X, pc);
 #ifndef PRODUCT
       tty->cr();
       findpc(pc);
       tty->cr();
 #endif
-      tty->print_cr(" r0 = 0x%016lx", regs[0]);
-      tty->print_cr(" r1 = 0x%016lx", regs[1]);
-      tty->print_cr(" r2 = 0x%016lx", regs[2]);
-      tty->print_cr(" r3 = 0x%016lx", regs[3]);
-      tty->print_cr(" r4 = 0x%016lx", regs[4]);
-      tty->print_cr(" r5 = 0x%016lx", regs[5]);
-      tty->print_cr(" r6 = 0x%016lx", regs[6]);
-      tty->print_cr(" r7 = 0x%016lx", regs[7]);
-      tty->print_cr(" r8 = 0x%016lx", regs[8]);
-      tty->print_cr(" r9 = 0x%016lx", regs[9]);
-      tty->print_cr("r10 = 0x%016lx", regs[10]);
-      tty->print_cr("r11 = 0x%016lx", regs[11]);
-      tty->print_cr("r12 = 0x%016lx", regs[12]);
-      tty->print_cr("r13 = 0x%016lx", regs[13]);
-      tty->print_cr("r14 = 0x%016lx", regs[14]);
-      tty->print_cr("r15 = 0x%016lx", regs[15]);
-      tty->print_cr("r16 = 0x%016lx", regs[16]);
-      tty->print_cr("r17 = 0x%016lx", regs[17]);
-      tty->print_cr("r18 = 0x%016lx", regs[18]);
-      tty->print_cr("r19 = 0x%016lx", regs[19]);
-      tty->print_cr("r20 = 0x%016lx", regs[20]);
-      tty->print_cr("r21 = 0x%016lx", regs[21]);
-      tty->print_cr("r22 = 0x%016lx", regs[22]);
-      tty->print_cr("r23 = 0x%016lx", regs[23]);
-      tty->print_cr("r24 = 0x%016lx", regs[24]);
-      tty->print_cr("r25 = 0x%016lx", regs[25]);
-      tty->print_cr("r26 = 0x%016lx", regs[26]);
-      tty->print_cr("r27 = 0x%016lx", regs[27]);
-      tty->print_cr("r28 = 0x%016lx", regs[28]);
-      tty->print_cr("r30 = 0x%016lx", regs[30]);
-      tty->print_cr("r31 = 0x%016lx", regs[31]);
+      tty->print_cr(" r0 = 0x" UINT64_FORMAT_X, regs[0]);
+      tty->print_cr(" r1 = 0x" UINT64_FORMAT_X, regs[1]);
+      tty->print_cr(" r2 = 0x" UINT64_FORMAT_X, regs[2]);
+      tty->print_cr(" r3 = 0x" UINT64_FORMAT_X, regs[3]);
+      tty->print_cr(" r4 = 0x" UINT64_FORMAT_X, regs[4]);
+      tty->print_cr(" r5 = 0x" UINT64_FORMAT_X, regs[5]);
+      tty->print_cr(" r6 = 0x" UINT64_FORMAT_X, regs[6]);
+      tty->print_cr(" r7 = 0x" UINT64_FORMAT_X, regs[7]);
+      tty->print_cr(" r8 = 0x" UINT64_FORMAT_X, regs[8]);
+      tty->print_cr(" r9 = 0x" UINT64_FORMAT_X, regs[9]);
+      tty->print_cr("r10 = 0x" UINT64_FORMAT_X, regs[10]);
+      tty->print_cr("r11 = 0x" UINT64_FORMAT_X, regs[11]);
+      tty->print_cr("r12 = 0x" UINT64_FORMAT_X, regs[12]);
+      tty->print_cr("r13 = 0x" UINT64_FORMAT_X, regs[13]);
+      tty->print_cr("r14 = 0x" UINT64_FORMAT_X, regs[14]);
+      tty->print_cr("r15 = 0x" UINT64_FORMAT_X, regs[15]);
+      tty->print_cr("r16 = 0x" UINT64_FORMAT_X, regs[16]);
+      tty->print_cr("r17 = 0x" UINT64_FORMAT_X, regs[17]);
+      tty->print_cr("r18 = 0x" UINT64_FORMAT_X, regs[18]);
+      tty->print_cr("r19 = 0x" UINT64_FORMAT_X, regs[19]);
+      tty->print_cr("r20 = 0x" UINT64_FORMAT_X, regs[20]);
+      tty->print_cr("r21 = 0x" UINT64_FORMAT_X, regs[21]);
+      tty->print_cr("r22 = 0x" UINT64_FORMAT_X, regs[22]);
+      tty->print_cr("r23 = 0x" UINT64_FORMAT_X, regs[23]);
+      tty->print_cr("r24 = 0x" UINT64_FORMAT_X, regs[24]);
+      tty->print_cr("r25 = 0x" UINT64_FORMAT_X, regs[25]);
+      tty->print_cr("r26 = 0x" UINT64_FORMAT_X, regs[26]);
+      tty->print_cr("r27 = 0x" UINT64_FORMAT_X, regs[27]);
+      tty->print_cr("r28 = 0x" UINT64_FORMAT_X, regs[28]);
+      tty->print_cr("r30 = 0x" UINT64_FORMAT_X, regs[30]);
+      tty->print_cr("r31 = 0x" UINT64_FORMAT_X, regs[31]);
       BREAKPOINT;
     }
     ThreadStateTransition::transition(thread, _thread_in_vm, saved_state);
@@ -5030,7 +5030,7 @@ void MacroAssembler::has_negatives(Register ary1, Register len, Register result)
 
     int shift = 64 - exact_log2(os::vm_page_size());
     lsl(rscratch1, ary1, shift);
-    mov(rscratch2, (size_t)(4 * wordSize) << shift);
+    mov(rscratch2, (u_int64_t)(4 * wordSize) << shift);
     adds(rscratch2, rscratch1, rscratch2);  // At end of page?
     br(CS, STUB); // at the end of page then go to stub
     subs(len, len, wordSize);
@@ -5761,6 +5761,22 @@ void MacroAssembler::char_array_compress(Register src, Register dst, Register le
   csel(result, result, zr, EQ);
 }
 
+#ifdef __OpenBSD__
+// OpenBSD uses emulated tls so it can't use aarch64_get_thread_helper().
+// Save whatever non-callee save context might get clobbered by
+// Thread::current.
+void MacroAssembler::get_thread(Register dst) {
+  RegSet saved_regs = RegSet::range(r0, r18) + lr - dst;
+  push(saved_regs, sp);
+
+  MacroAssembler::call_VM_leaf_base(CAST_FROM_FN_PTR(address, Thread::current), 0);
+  if (dst != c_rarg0) {
+    mov(dst, c_rarg0);
+  }
+
+  pop(saved_regs, sp);
+}
+#else
 // get_thread() can be called anywhere inside generated code so we
 // need to save whatever non-callee save context might get clobbered
 // by the call to JavaThread::aarch64_get_thread_helper() or, indeed,
@@ -5780,3 +5796,4 @@ void MacroAssembler::get_thread(Register dst) {
 
   pop(saved_regs, sp);
 }
+#endif

@@ -3215,8 +3215,8 @@ class StubGenerator: public StubCodeGenerator {
 
     // Max number of bytes we can process before having to take the mod
     // 0x15B0 is 5552 in decimal, the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1
-    unsigned long BASE = 0xfff1;
-    unsigned long NMAX = 0x15B0;
+    u_int64_t BASE = 0xfff1;
+    u_int64_t NMAX = 0x15B0;
 
     __ mov(base, BASE);
     __ mov(nmax, NMAX);

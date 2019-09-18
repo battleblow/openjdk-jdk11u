@@ -96,6 +96,10 @@ else ifeq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU), linux-aarch64)
   endif
 endif
 
+ifeq ($(OPENJDK_TARGET_OS_ENV)-$(OPENJDK_TARGET_CPU), bsd.openbsd-aarch64)
+  JVM_EXCLUDE_FILES += threadLS_bsd_aarch64.s
+endif
+
 ifneq ($(filter $(OPENJDK_TARGET_OS), linux macosx bsd windows), )
   JVM_PRECOMPILED_HEADER := $(TOPDIR)/src/hotspot/share/precompiled/precompiled.hpp
 endif
