@@ -521,7 +521,7 @@ void os::print_context(outputStream *st, const void *context) {
   st->print_cr("  %-3s = " U64_FORMAT, "pstate", uc->uc_mcontext.pstate);
 #else
   // now print flag register
-  st->print_cr("  %-4s = 0x%08lx", "cpsr",uc->uc_mcontext.arm_cpsr);
+  st->print_cr("  %-4s = 0x%08x", "cpsr",uc->uc_mcontext.arm_cpsr);
 #endif
   st->cr();
 
