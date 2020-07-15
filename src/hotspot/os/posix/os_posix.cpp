@@ -462,7 +462,9 @@ void os::Posix::print_rlimit_info(outputStream* st) {
 #endif
 
   print_rlimit(st, ", NOFILE", RLIMIT_NOFILE);
+#ifndef __OpenBSD__
   print_rlimit(st, ", AS", RLIMIT_AS, true);
+#endif
   print_rlimit(st, ", CPU", RLIMIT_CPU);
   print_rlimit(st, ", DATA", RLIMIT_DATA, true);
 
